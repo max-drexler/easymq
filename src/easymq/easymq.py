@@ -1,5 +1,6 @@
 import json
 import multiprocessing
+from multiprocessing.synchronize import Event as EventClass
 from queue import Empty
 import socket
 import atexit
@@ -13,36 +14,30 @@ from typing import (List,
                     Union,
                     Collection,
                     Iterable,
-                    Sequence)
+                    Optional)
 
-__all__ = ['MQClient', 'AuthenticationError']
+__all__ = ['MQClient']
 
 AMQP_MSG = Tuple[str, Dict[str, Union[str, bool, int, float]]]
-
-
-class AuthenticationError(Exception):
-    pass
-
 
 class MQClient:
 
     NUM_RECONNECTS = 3
     RECONNECT_DELAY = 10
 
-    def __init__(self, exchange: str, servers: Union[str, Iterable[str]], username: str = 'guest', paswd: str = 'guest', auth_file: str = None) -> None:
-        self.__exchange = exchange
-        self.__servers = [servers] if isinstance(servers, str) else servers
+    def __init__(self, exchange: str, servers: Union[str, Iterable[str]], username: str = 'guest', paswd: str = 'guest', auth_file: Optional[str] = None) -> None:
+        self.__exchange: str = exchange
+        self.__servers: List[str] = [servers] if isinstance(servers, str) else [serv for serv in servers]
 
-        if auth_file is None:
-            self.username = username
-            self.__pswd = paswd  # change this so password isn't stored in memory??
-        else:
-            with open(auth_file, 'r', encoding='utf-8') as auth:
-                self.username = auth.readline().strip()
-                self.__pswd = auth.readline().strip()
+        if auth_file is not None:
+            creds = open(auth_file, 'r', encoding='utf-8')
+        self.username: str = getattr(creds, 'readline', username).strip()
+        self.__pswd: str = getattr(creds, 'readline', paswd).strip()  # change this so password isn't stored in memory??
+        if auth_file is not None:
+            creds.close()
 
-        self.__msg_queue = multiprocessing.Queue()
-        self.__stop_sig = multiprocessing.Event()
+        self.__msg_queue: multiprocessing.Queue = multiprocessing.Queue()
+        self.__stop_sig: EventClass = multiprocessing.Event()
 
         self.__connections = [ServerConnection(
             self.__exchange, serv, self.username, self.__pswd) for serv in self.__servers]
@@ -59,10 +54,6 @@ class MQClient:
     @property
     def servers(self) -> Collection[str]:
         return self.__servers
-
-    @property
-    def input(self) -> multiprocessing.Queue:
-        return self.__msg_queue
 
     def send(self, message: Union[AMQP_MSG, Iterable[AMQP_MSG]]) -> None:
         if not self.__open:
@@ -104,7 +95,7 @@ class ServerConnection:
 
     @property
     def exchange(self) -> str:
-        return self.__exchange
+        return str(self.__exchange)
 
     @property
     def channel(self) -> pika.channel.Channel:
@@ -121,14 +112,14 @@ class ServerConnection:
 # add some aynchronous confirm_delivery() to make sure that message was delivered
 class Publisher(multiprocessing.Process):
 
-    def __init__(self, in_queue: multiprocessing.Queue, connections: List[ServerConnection], stop_sig: multiprocessing.Event) -> None:
+    def __init__(self, in_queue: multiprocessing.Queue, connections: List[ServerConnection], stop_sig: EventClass) -> None:
         super().__init__(None, None, 'Process-Publisher', (), {})
         self.__input = in_queue
         self.connections = connections
-        self.__stop: threading.Event = stop_sig
+        self.__stop: EventClass = stop_sig
 
-        self.invalid_msgs = []
-        self.unsent_msgs = []
+        self.invalid_msgs: List[AMQP_MSG] = []
+        self.unsent_msgs: List[AMQP_MSG] = []
 
     def run(self) -> None:
         while True:
