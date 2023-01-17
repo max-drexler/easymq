@@ -15,16 +15,21 @@ from typing import (List,
                     Iterable,
                     Optional)
 
-__all__ = ['MQClient']
+__all__ = ['MQClient', 'AMQP_MSG']
 
 AMQP_MSG = Tuple[str, Dict[str, Union[str, bool, int, float]]]
+
 
 class MQClient:
 
     NUM_RECONNECTS = 3
     RECONNECT_DELAY = 10
 
-    def __init__(self, exchange: str, servers: Union[str, Iterable[str]], username: str = 'guest', paswd: str = 'guest', auth_file: Optional[str] = None) -> None:
+    def __init__(self, exchange: str,
+                 servers: Union[str, Iterable[str]],
+                 username: str = 'guest',
+                 paswd: str = 'guest',
+                 auth_file: Optional[str] = None) -> None:
         self.__exchange: str = exchange
         self.__servers: List[str] = [servers] if isinstance(servers, str) else [serv for serv in servers]
 
@@ -109,6 +114,8 @@ class ServerConnection:
             pass
 
 # add some aynchronous confirm_delivery() to make sure that message was delivered
+
+
 class Publisher(multiprocessing.Process):
 
     def __init__(self, in_queue: multiprocessing.Queue, connections: List[ServerConnection], stop_sig: EventClass) -> None:
@@ -138,12 +145,11 @@ class Publisher(multiprocessing.Process):
 
             for conn in self.connections:
                 conn.channel.basic_publish(conn.exchange, key, payload, pika.BasicProperties(content_type='text/json', delivery_mode=1))
-                    #create timer that calls __republish
-                    
-        # write unsent messages to file    
-    
+                # create timer that calls __republish
+        # write unsent messages to file
+
     def __republish(connection, message, atmpt_num) -> None:
         pass
-     
+
     def add_connection(self, new_connection: ServerConnection) -> None:
         self.connections.append(new_connection)
