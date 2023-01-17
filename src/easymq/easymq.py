@@ -4,7 +4,6 @@ from multiprocessing.synchronize import Event as EventClass
 from queue import Empty
 import socket
 import atexit
-import threading
 import pika
 import pika.channel
 from pika.exceptions import ProbableAccessDeniedError, ProbableAuthenticationError, AuthenticationError, ConnectionWrongStateError
