@@ -19,7 +19,7 @@ __all__ = ['MQClient', 'AMQP_MSG']
 
 AMQP_MSG = Tuple[str, Dict[str, Union[str, bool, int, float]]]
 
-
+# add context manager ability?
 class MQClient:
 
     NUM_RECONNECTS = 3
@@ -28,17 +28,19 @@ class MQClient:
     def __init__(self, exchange: str,
                  servers: Union[str, Iterable[str]],
                  username: str = 'guest',
-                 paswd: str = 'guest',
-                 auth_file: Optional[str] = None) -> None:
+                 password: str = 'guest',
+                 auth_file: Optional[str] = None
+                ) -> None:
         self.__exchange: str = exchange
         self.__servers: List[str] = [servers] if isinstance(servers, str) else [serv for serv in servers]
 
         if auth_file is not None:
-            creds = open(auth_file, 'r', encoding='utf-8')
-        self.username: str = getattr(creds, 'readline', username).strip()
-        self.__pswd: str = getattr(creds, 'readline', paswd).strip()  # change this so password isn't stored in memory??
-        if auth_file is not None:
-            creds.close()
+            with open(auth_file, 'r', encoding='utf-8') as creds:
+                self.username: str = creds.readline().strip()
+                self.__pswd: str = creds.readline().strip()  # change this so password isn't stored in memory??
+        else:
+            self.username = username
+            self.__pswd = password
 
         self.__msg_queue: multiprocessing.Queue = multiprocessing.Queue()
         self.__stop_sig: EventClass = multiprocessing.Event()
@@ -56,7 +58,7 @@ class MQClient:
         return self.__exchange
 
     @property
-    def servers(self) -> Collection[str]:
+    def servers(self) -> List[str]:
         return self.__servers
 
     def send(self, message: Union[AMQP_MSG, Iterable[AMQP_MSG]]) -> None:
