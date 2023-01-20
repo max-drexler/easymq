@@ -22,6 +22,6 @@ def test_context_manager():
 def test_local_msg_send(durable_consumer):
     client = MQClient().connect('localhost')
     client.exchange = AMQP_TEST_EXCHANGE
-    client.send(TEST_MSG)
+    client.publish(TEST_MSG)
     
     assert durable_consumer.get_message() == TEST_MSG[1]
