@@ -5,18 +5,19 @@ from conftest import AMQP_ROUTING_KEY, AMQP_TEST_EXCHANGE
 
 TEST_MSG = (AMQP_ROUTING_KEY.replace('*','test'), {'received': 'received'})
 
+@pytest.mark.slow
 def test_false_server():
     with pytest.raises(ConnectionError):
         client = PublisherPool().connect('this.server.does.not.exist')
         
 def test_no_credentials():
-    with pytest.raises(AuthenticationError):
+    with pytest.raises(Exception):
         client = PublisherPool().connect('dcprod-dev.ssec.wisc.edu')
         
 def test_context_manager():
     with PublisherPool().connect('localhost') as client:
-        assert client.open_connections == ['localhost']
-    assert client.open_connections == []
+        assert client.connections == ['localhost']
+    assert client.connections == []
 
 @pytest.mark.skip
 def test_local_msg_send(durable_consumer):

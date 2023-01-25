@@ -7,6 +7,9 @@ addopts = "--cov=easymq"
 testpaths = [
     "tests",
 ]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
 
 [tool.mypy]
 mypy_path = "src"

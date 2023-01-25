@@ -3,6 +3,7 @@ import queue
 import pika
 import pika.channel
 import threading
+from pytest_rabbitmq import factories
 
 AMQP_ROUTING_KEY = "*.*.*"
 AMQP_TEST_EXCHANGE = 'easymq_test'
@@ -141,6 +142,8 @@ class AmqpClient:
             else:
                 self._connection.ioloop.start()
 
+
+rabbitmq = factories.rabbitmq_proc(ctl='/usr/sbin/rabbitmqctl', server='/usr/sbin/rabbitmq-server')
 
 @pytest.fixture(autouse=True, scope="session")
 def durable_consumer():
