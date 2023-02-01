@@ -1,44 +1,41 @@
 import atexit
-from enum import Enum
 import json
-from typing import Dict, Iterable, Iterator, List, Optional, Union
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Union, Tuple
 import warnings
 
-from .config import JSONType, AMQP_MSG
+from .config import DEFAULT_EXCHANGE, DEFAULT_SERVER, DEFAULT_ROUTE_KEY
 from .adapter import MQCredentials, PikaPublisher
 
 __all__ = ["PublisherPool", "Publisher"]
 
-DEFAULT_SERVER = "localhost"
-DEFAULT_EXCHANGE = ""
+JSONType = Union[
+    str,
+    int,
+    float,
+    bool,
+    None,
+    Dict[str, Union[str, bool, int, float, dict]],
+    List[Union[str, bool, int, float, dict]],
+]
 
-
-class EncodingType(Enum):
-    string = str
-    json = json.dumps
-    byte = bytes
+AMQP_MSG = Tuple[str, JSONType]
 
 
 class Publisher:
-    def __init__(
-        self,
-        credentials: Optional[MQCredentials] = None,
-        exchange: Optional[str] = None,
-        server: Optional[str] = None,
-    ) -> None:
+    def __init__(self) -> None:
         atexit.register(self.close)
 
-        self._credentials = getattr(credentials, "creds", MQCredentials().creds)
+        self._credentials = MQCredentials().creds
         self._publisher: PikaPublisher = None
         try:
             self._publisher = PikaPublisher(
                 credentials=self._credentials,
-                server=server or DEFAULT_SERVER,
-                exchange=exchange or DEFAULT_EXCHANGE,
+                server=DEFAULT_SERVER,
+                exchange=DEFAULT_EXCHANGE,
             )
         except Exception:
             warnings.warn(
-                f"User {self._credentials.username} cannot connect to {server} with given credentials"
+                f"User {self._credentials.username} cannot connect to {DEFAULT_SERVER} with given credentials"
             )
 
     @property
@@ -62,7 +59,7 @@ class Publisher:
     def exchange_exists(self, new_exchange: str) -> bool:
         return self._publisher.check_exchange(new_exchange)
 
-    def publish(self, payload: JSONType, route_key="", confirm_delivery=False) -> None:
+    def publish(self, payload: JSONType, route_key=DEFAULT_ROUTE_KEY, confirm_delivery=False) -> None:
         if self._publisher is None:
             raise ConnectionError("Publisher isn't connected to a server!")
         self._publisher.publish(
@@ -82,10 +79,10 @@ class Publisher:
                     confirm_delivery=confirm_delivery,
                 )
             else:
-                self.publish(json.dumps(msg), confirm_delivery=confirm_delivery)
+                self.publish(msg, confirm_delivery=confirm_delivery)
 
-    def connect(self, server: str, credentials: Optional[MQCredentials] = None) -> None:
-        # don't want to reconnect if server and credentials aren't different
+    def connect(self, server: str, credentials: Optional[MQCredentials] = None):
+        # don't want to connect if server and credentials aren't different
         if (
             self._publisher is not None
             and self._publisher.server == server
@@ -100,16 +97,17 @@ class Publisher:
             new_pub.exchange = self._publisher.exchange
         except Exception:
             warnings.warn(
-                f"Could not connect to exchange {self._publisher.exchange} on {server}, connected to default exchange instead"
+                f"Exchange '{self._publisher.exchange}' doesn't exist on {server}, connected to default exchange"
             )
         self.close()
         self._publisher = new_pub
         if credentials is not None:
             self._credentials = credentials
+        return self
 
     def close(self) -> None:
         if self._publisher is not None:
-            self._publisher.connection.close()
+            self._publisher.close()
             self._publisher = None
 
     def __enter__(self):
@@ -130,6 +128,13 @@ class Publisher:
 
     def __hash__(self) -> int:
         return id(self)
+
+    def __call__(self, func_name: str, *args: Any, **kwds: Any) -> Any:
+        client_function = getattr(self._publisher, func_name, None)
+        if client_function is None:
+            raise AttributeError(f"Function {func_name} doesn't exist")
+
+        client_function(*args, **kwds)
 
 
 class PublisherPool:
@@ -210,7 +215,7 @@ class PublisherPool:
             if pub.server in servers:
                 new_pubs.append(self._publishers.remove(pub))
         return self
-        
+
     def close(self) -> None:
         for con in self._publishers:
             con.close()

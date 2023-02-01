@@ -16,20 +16,23 @@ from pika.exceptions import (
     ProbableAuthenticationError,
 )
 
-from easymq.config import RECONNECT_DELAY, RECONNECT_TRIES
+from easymq.config import RECONNECT_DELAY, RECONNECT_TRIES, DEFAULT_PASS, DEFAULT_USER
 
 
 class MQCredentials:
     def __init__(
-        self, username="guest", password="guest", auth_file: Optional[str] = None
+        self,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        auth_file: Optional[str] = None,
     ) -> None:
         if auth_file is not None:
             with open(auth_file, "r", encoding="utf-8") as creds:
                 username: str = creds.readline().strip()
                 __pswd: str = creds.readline().strip()
         else:
-            username = username
-            __pswd = password
+            username = username or DEFAULT_USER
+            __pswd = password or DEFAULT_PASS
 
         self._credentials = pika.PlainCredentials(username, __pswd)
 
@@ -72,6 +75,10 @@ class PikaConnection(threading.Thread):
         self.start()
 
     @property
+    def port(self) -> int:
+        return self._con_params.port
+
+    @property
     def is_reconnecting(self) -> bool:
         return not self._reconnecting.is_set()
 
@@ -100,13 +107,13 @@ class PikaConnection(threading.Thread):
             self._connection = pika.BlockingConnection(parameters=self._con_params)
             self.__channel_setup()
         except (socket.gaierror, socket.herror):
-            raise ConnectionError(f"Could not connect to server")
+            raise ConnectionError("Could not connect to server")
         except (
             AuthenticationError,
             ProbableAccessDeniedError,
             ProbableAuthenticationError,
         ):
-            raise AuthenticationError(f"Not authenticated to connect to server")
+            raise AuthenticationError("Not authenticated to connect to server")
 
     def close(self) -> None:
         self._running = False
@@ -136,22 +143,23 @@ class PikaConnection(threading.Thread):
         self._reconnecting.clear()
         tries = RECONNECT_TRIES
         while self._running:
-            try:
-                self.connect()
-                if self._connection.is_open:
-                    break
-            except AMQPConnectionError:
-                if self._running:
-                    time.sleep(RECONNECT_DELAY)
-            if tries is None:
-                continue
-            tries -= 1
-            if tries < 0:
+            if tries == 0:
                 self._reconnecting.set()
                 self.close()
                 raise RuntimeWarning(
                     f"Could not reconnect to {self.server} after {RECONNECT_TRIES} attempt(s), exiting..."
                 )
+            try:
+                self.connect()
+                if self._connection.is_open:
+                    break
+            except AMQPConnectionError:
+                pass
+            if self._running:
+                time.sleep(RECONNECT_DELAY)
+            if tries < 0:
+                continue
+            tries -= 1
         self._reconnecting.set()
 
     def add_callback(self, callback: Callable, *args, **kwargs) -> None:
@@ -166,12 +174,15 @@ class PikaClient:
         self,
         credentials: Optional[MQCredentials] = None,
         server: str = "localhost",
+        port: int = 5672,
     ) -> None:
         self._credentials: pika.PlainCredentials = getattr(
             credentials, "creds", MQCredentials().creds
         )
         self._server_conn = PikaConnection(
-            pika.ConnectionParameters(host=server, credentials=self._credentials)
+            pika.ConnectionParameters(
+                host=server, credentials=self._credentials, port=port
+            )
         )
         atexit.register(self._server_conn.close)
 
@@ -237,7 +248,7 @@ class PikaClient:
                 passive=passive,
             )
 
-    def declare_exchange(
+    def exchange_declare(
         self,
         exchange_name: str,
         exchange_type: str = "direct",
@@ -272,7 +283,7 @@ class PikaClient:
                 auto_delete=auto_delete,
             )
 
-    def declare_queue(
+    def queue_declare(
         self, queue_name: str, durable=False, exclusive=False, auto_delete=False
     ) -> None:
         with self.sync_connection():
@@ -285,7 +296,7 @@ class PikaClient:
                 auto_delete=auto_delete,
             )
 
-    def check_queue(self, queue_name: str) -> bool:
+    def queue_check(self, queue_name: str) -> bool:
         self._server_conn.wait_for_reconnect()
         self._server_conn.add_callback(self.__declare_queue, queue_name, passive=True)
         try:
@@ -300,7 +311,7 @@ class PikaClient:
                 queue_name, if_unused=if_unused, if_empty=if_empty
             )
 
-    def delete_queue(self, queue_name: str, if_unused=False, if_empty=False) -> None:
+    def queue_delete(self, queue_name: str, if_unused=False, if_empty=False) -> None:
         with self.sync_connection():
             self._server_conn.add_callback(
                 self.__delete_queue, queue_name, if_unused=if_unused, if_empty=if_empty
@@ -312,7 +323,7 @@ class PikaClient:
                 exchange_name, if_unused=if_unused
             )
 
-    def delete_exchange(self, exchange_name: str, if_unused=False) -> None:
+    def exchange_delete(self, exchange_name: str, if_unused=False) -> None:
         with self.sync_connection():
             self._server_conn.add_callback(
                 self.__delete_exchange, exchange_name, if_unused=if_unused
@@ -326,7 +337,7 @@ class PikaClient:
                 queue_name, exchange_name, routing_key=routing_key
             )
 
-    def bind_queue(
+    def queue_bind(
         self, queue_name: str, exchange_name: str, routing_key: Optional[str] = None
     ) -> None:
         with self.sync_connection():
@@ -345,7 +356,7 @@ class PikaClient:
                 queue_name, exchange_name, routing_key=routing_key
             )
 
-    def unbind_queue(
+    def queue_unbind(
         self,
         queue_name: str,
         exchange_name: str,
@@ -363,7 +374,7 @@ class PikaClient:
         with self._sync_caller():
             self._server_conn._channel.queue_purge(queue_name)
 
-    def purge_queue(self, queue_name: str) -> None:
+    def queue_purge(self, queue_name: str) -> None:
         with self.sync_connection():
             self._server_conn.add_callback(self.__purge_queue, queue_name)
 
@@ -387,14 +398,17 @@ class PikaClient:
         raise to_raise or err
 
     def __del__(self) -> None:
-        if self._server_conn is not None:
-            self._server_conn.close()
+        self.close()
 
     def __enter__(self):
         return self
 
     def __exit__(self) -> None:
-        self._server_conn.close()
+        self.close()
+
+    def close(self) -> None:
+        if self._server_conn is not None:
+            self._server_conn.close()
 
 
 class PikaPublisher(PikaClient):
@@ -402,9 +416,10 @@ class PikaPublisher(PikaClient):
         self,
         credentials: Optional[MQCredentials] = None,
         server: str = "localhost",
+        port: int = 5672,
         exchange="",
     ) -> None:
-        super().__init__(credentials, server)
+        super().__init__(credentials, server, port)
         self.__exchange = exchange
         self._publish_props = pika.BasicProperties(
             delivery_mode=1, content_type="application/json"
@@ -448,6 +463,7 @@ class PikaPublisher(PikaClient):
 
     def __del__(self) -> None:
         return super().__del__()
+
 
 class PikaConsumer(PikaClient):
     """Not yet implemented"""

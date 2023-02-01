@@ -1,20 +1,19 @@
 # EasyMQ
 
-A simple AMQP message publisher.
+An easy-to-use AMQP client.
 
-## Integrate with your tools
+## Table of Contents
 
-- [ ] [Set up project integrations](https://gitlab.ssec.wisc.edu/mdrexler/easymq/-/settings/integrations)
+* [Description](#description)
+* [Installation](#installation)
+* [Usage](#usage)
+    * [Basic Publishing](#basic-publishing)
+    * [Multi-Server Publishing](#publishing-to-multiple-servers)
+    * [Editing Topology](#editing-rabbitmq-server-topology)
+    * [Change Default Behavior](#change-default-behavior)
+* [Contributing](#contributing)
+* [Authors](#authors)
 
-
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing(SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-
-***
 
 ## Description
 
@@ -44,20 +43,22 @@ Note that it will be automatically installed using pip.
 ```
 from easymq import Publisher
 
-# create a publisher on localhost with default credentials
+# create a publisher
+# connects to localhost by default
 pub = Publisher()
 
-# publish to the default exchange
+# publish a message
+# publishes to rabbitmq default exchange by default
 pub.publish("Hello World!")
 
 # switch to a different exchange if it exists
 if pub.exchange_exists("amq.topic"):
     pub.exchange = "amq.topic"
 
-# publish using a routing key
+# publish a message using a routing key
 pub.publish("Hello!", route_key="topic.string")
 
-# connect to a remote server with specific credentials
+# connect to a server with specific credentials
 from easymq import MQCredentials
 creds = MQCredentials('username', 'password')
 pub.connect("new.server.com", credentials=creds)
@@ -104,28 +105,46 @@ pool.close()
 ### Editing RabbitMQ Server Topology
 
 ```
-from easymq import MQCredentials
-from easymq.adapter import PikaClient
+from easymq import Publisher
 
-# create client credentials for server 
-creds = MQCredentials('username', 'password')
-
-# create a client on desired server
-client = PikaClient(credentials=creds, server='localhost')
-
-# create/delete/bind exchanges and queues
-client.declare_exchange('test_exchange', durable=True)
-client.declare_queue('new_queue', auto_delete=True)
-client.bind_queue('new_queue', 'test_exchange')
+with Publisher().connect('rabbitmq.server') as pub:
+    pub('declare_exchange', 'new_exchange', auto_delete=True)
+    pub('declare_queue', 'new_queue', durable=True)
+    pub('bind_queue', 'new_queue', 'new_exchange')
 ```
 
+### Change Default Behavior
+
+To edit the default behavior of easymq, import the package and directly edit the values of the configuration variables.
+
+```
+import easymq
+
+easymq.DEFAULT_USER = "my_default_username"
+pub = easymq.Publisher() # <- will automatically use my_default_username
+```
+
+The following is a list of all configuration varaibles, what they do, their default value, and acceptable value.
+
+| Variable Name    | Acceptable Values | Default Value | What it does |
+|:----------------:|:-----------------:|:------------:|:------------:|
+| RECONNECT_TRIES  | int or None | 5   | The number of times easymq will try to reconnect to a server after a disconnect, None for infinite.
+| RECONNECT_DELAY  | float >= 0  | 5.0 | Delay between reconnect attempts.
+| DEFAULT_SERVER   |     str     | "localhost" |Default server to connect to.
+| DEFAULT_EXCHANGE |     str     | ""  | Default exchange to connect to.
+| DEFAULT_USER     |     str     | "guest" | Default username to connect with.
+| DEFAULT_PASS     |     str     | "guest" | Default password to connect with.
+|DEFAULT_ROUTE_KEY |     str     |   ""    | Routing key to use when not specified in method calls
+| RABBITMQ_PORT    |     int     |  5672   | Port to connect to rabbitmq server with
+
+Permently setting configuration variables in development.
 
 ## Roadmap
 
 Will eventually create a Consumer class to listen to messages from RabbitMQ servers.
 
 ## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+Open to contributions, currently looking to create a consumer class.
 
 For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
 
@@ -133,7 +152,7 @@ You can also document commands to lint the code or run tests. These steps help t
 
 ## Authors
 
-Developed by [Max Drexler](mailto:mndrexler@wisc.edu)
+Created/Maintained by [Max Drexler](mailto:mndrexler@wisc.edu)
 
 ## License
 
