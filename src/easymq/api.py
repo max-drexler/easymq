@@ -1,27 +1,52 @@
-from typing import Iterable, List, Union, Tuple
-from easymq.adapter import MQCredentials
-import easymq.config as cfg
-from .publish import Publisher, PublisherPool
+from typing import Iterable, Union, Tuple, Optional, Callable
 
 
-def consume():
+# Server connection API
+def connect(*args, credentials=None, add=False) -> None:
     pass
 
 
+def disconnect(*args) -> None:
+    pass
+
+
+# Publishing API
 def publish(
-    messages: Union[str, Iterable[Union[Tuple[str, str], str]]],
-    exchange: str = cfg.DEFAULT_EXCHANGE,
-    servers: Union[str, List[str]] = cfg.DEFAULT_SERVER,
-    auth: Tuple[str, str] = (cfg.DEFAULT_USER, cfg.DEFAULT_PASS),
-    routing_key: str = cfg.DEFAULT_ROUTE_KEY,
-):
-    creds = MQCredentials(username=auth[0], password=auth[1])
-    if isinstance(servers, str):
-        client = Publisher().connect(servers, credentials=creds)
-    else:
-        client = PublisherPool(credentials=creds).connect(servers)
-    if isinstance(messages, str):
-        client.publish(messages, route_key=routing_key)
-    else:
-        client.publish_all(messages)
-    client.close()
+    message,
+    key: Optional[str] = None,
+    name: Optional[str] = None,
+    type: str = "exchange",
+    block=False,
+    timeout: Optional[float] = None,
+) -> None:
+    pass
+
+
+def publish_all(
+    messages: Iterable[Union[str, Tuple[str, str]]],
+    name: Optional[str] = None,
+    type: str = "exchange",
+    block=False,
+    timeout: Optional[float] = None,
+) -> None:
+    pass
+
+
+# Consuming API *implement later
+def get(
+    name: Optional[str] = None,
+    key: Optional[str] = None,
+    block=False,
+    timeout: Optional[float] = None,
+    type: str = "exchange",
+) -> Union[str, None]:
+    pass
+
+
+def consume(
+    callback: Callable,
+    name: Optional[str] = None,
+    key: Optional[str] = None,
+    type: str = "exchange",
+) -> None:
+    pass

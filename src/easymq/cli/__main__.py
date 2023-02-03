@@ -1,11 +1,12 @@
 import argparse
 import sys
 from typing import List, Optional
+import warnings
 
 import easymq.config as cfg
 from easymq.config import set_cfg_var, CURRENT_CONFIG
 from easymq import __version__
-from .api import publish
+from ..api import publish
 
 vInfoStr = f"EasyMQ {__version__}"
 
@@ -44,16 +45,15 @@ def main(argv: Optional[List[str]] = None):
     # )
     vConfig_parser = subparsers.add_parser(
         "set",
-        description="set configuration variables",
-        help="set a configuration variable",
-        epilog="Example of use:\neasymq set VARIABLE_NAME VALUE",
+        description="set EasyMQ configuration variables in the user configuration file",
+        help="sets a configuration variable. Note this variable is set permanently for all future runs of EasyMQ.",
     )
     vLister_parser = subparsers.add_parser(
-        "list", description="list all configuration variables",
-        help="list all configuration valiables"
+        "list",
+        description="list all configuration variables",
+        help="list all configuration valiables",
     )
 
-    publish_parser.add_argument("message", help="a string to publish")
     publish_parser.add_argument(
         "-s",
         "--servers",
@@ -68,7 +68,7 @@ def main(argv: Optional[List[str]] = None):
         help="exchange to publish message(s) to, default is '%(default)s'",
     )
     publish_parser.add_argument(
-        "--messages", nargs="+", help="List of messages to publish"
+        "-m", "--messages", nargs="+", help="The message(s) to publish", required=True
     )
     publish_parser.add_argument(
         "-u",
@@ -86,7 +86,11 @@ def main(argv: Optional[List[str]] = None):
     vConfig_parser.add_argument(
         "variable", help="name of configuration variable to set"
     )
-    vConfig_parser.add_argument("value", help="the value to set the variable to, use 'None' to reset to default")
+    vConfig_parser.add_argument(
+        "value",
+        nargs="?",
+        help="the value to set the variable to, leave blank to reset to deafult",
+    )
 
     vLister_parser.add_argument(
         "--values",
@@ -100,12 +104,16 @@ def main(argv: Optional[List[str]] = None):
     if sub_command == "publish":
         publish()
     elif sub_command == "consume":
-        print('command line consumption is not yet implemented!')
+        print("command line consumption is not yet implemented!")
     elif sub_command == "set":
-        new_val = getattr(args, "value")
-        if new_val == 'None':
-            new_val = None
-        set_cfg_var(getattr(args, "variable"), new_val, durable=True)
+        warnings.filterwarnings('error')
+        var = getattr(args, "variable")
+        val = getattr(args, "value")
+        try:
+            set_cfg_var(var, val, durable=True)
+            print(f"variable '{var}' set to '{val}' in config file at '{cfg.CONFIG_PATH}'")
+        except Exception:
+            raise
     elif sub_command == "list":
         list_cfg_vars(getattr(args, "values"))
     else:

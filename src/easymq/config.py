@@ -20,18 +20,43 @@ BASE_VALUES: Dict[str, Union[str, int, float]] = {
     "RABBITMQ_PORT": 5672,
 }
 
-# Used to verify the values that users set are valid
-# Callable should raise an error if value is incorrect
+
+def verify_pos_float(_obj: Any) -> float:
+    new_float = float(_obj)
+    if new_float < 0:
+        raise ValueError
+    return new_float
+
+
+def verify_pos_int(_obj: Any) -> int:
+    new_int = int(_obj)
+    if new_int < 0:
+        raise ValueError
+    return new_int
+
+
+def verify_msg_buf_policy(_obj: Any) -> int:
+    new_policy = int(_obj)
+    # 1 = drop all messages when server is reconnecting
+    # 2 = buffer messages when server is reconnecting and publish after reconnect
+    # 3 = block until server reconnects
+    # 4 = raise an error if server is disconnected
+    return new_policy
+
+
+# Used to verify the values of configuration variables
+# Callable should raise ValueError if value is incorrect
 VERIFY_VALUE: Dict[str, Callable] = {
-    "RECONNECT_DELAY": float,
+    "RECONNECT_DELAY": verify_pos_float,
     "RECONNECT_TRIES": int,
     "DEFAULT_SERVER": str,
     "DEFAULT_EXCHANGE": str,
     "DEFAULT_USER": str,
     "DEFAULT_PASS": str,
     "DEFAULT_ROUTE_KEY": str,
-    "RABBITMQ_PORT": int,
+    "RABBITMQ_PORT": verify_pos_int,
 }
+
 
 RECONNECT_DELAY = BASE_VALUES["RECONNECT_DELAY"]
 RECONNECT_TRIES = BASE_VALUES["RECONNECT_TRIES"]
@@ -54,40 +79,37 @@ def get_current_config() -> str:
     return json.dumps(CURRENT_CONFIG, indent=4)
 
 
-def load_config_from_file(cstm_cfg_file_path: str) -> None:
+def load_config_from_file(cfg_file_path: str) -> None:
     try:
-        with open(cstm_cfg_file_path, "r", encoding="utf-8") as cfg_file:
-            _variable_dict: Dict = json.load(cfg_file)
+        with open(cfg_file_path, "r", encoding="utf-8") as cfg_file:
+            new_cfg_file: Dict = json.load(cfg_file)
     except json.decoder.JSONDecodeError:
         warnings.warn(
-            f"file '{cstm_cfg_file_path}' has incorrectly formatted JSON, using default values instead"
+            f"file '{cfg_file_path}' has incorrectly formatted JSON, using default values instead"
         )
         return
-    except IOError:
+    except IOError as e:
         warnings.warn(
-            f"Cannot load config, file '{cstm_cfg_file_path}' doesn't exist!"
+            f"Error loading config '{cfg_file_path}': [{e.errno}] {e.strerror}"
         )
         return
 
-    # verify all values in user config file
-    for _var in _variable_dict:
-        try:
-            valid_value = VERIFY_VALUE[_var](_variable_dict[_var])
-            setattr(_cur_module, _var, valid_value)
-        except AttributeError:
-            warnings.warn(
-                f"Skipping variable {_var} from {cstm_cfg_file_path}, not a valid config variable!"
-            )
-        except ValueError:
-            warnings.warn(
-                f"Using default value of {_var}. Value '{_variable_dict[_var]}' in {cstm_cfg_file_path} not valid!"
-            )
+    for config_var in new_cfg_file:
+        set_cfg_var(config_var, new_cfg_file[config_var])
 
 
 def set_cfg_var(config_var: str, value: Any, durable=False) -> None:
     config_var = config_var.upper()
-    # remove variable from config file/use default
-    new_value = BASE_VALUES[config_var] if value is None else VERIFY_VALUE[config_var](value)
+    try:
+        new_value = BASE_VALUES[config_var] if value is None else VERIFY_VALUE[config_var](value)
+    except (KeyError, AttributeError):
+        warnings.warn(f"configuration variable '{config_var}' doesn't exist!")
+        return
+    except ValueError:
+        warnings.warn(
+            f"Cannot set {config_var} to '{value}', using default value instead."
+        )
+        return
     setattr(_cur_module, config_var, new_value)
     CURRENT_CONFIG[config_var] = new_value
     if durable:
@@ -96,7 +118,7 @@ def set_cfg_var(config_var: str, value: Any, durable=False) -> None:
 
 
 def _init() -> None:
-    # setup user config file
+    # setup user config file in the user directory
     usr_cfg_dir = PlatformDirs("easymq").user_config_dir
     os.makedirs(usr_cfg_dir, exist_ok=True)
     usr_cfg_file = os.path.join(usr_cfg_dir, 'variables.json')

@@ -1,8 +1,14 @@
-from .adapter import MQCredentials
-from .config import set_cfg_var
-from .publish import Publisher, PublisherPool
-from .api import publish, consume
-from .__version__ import (
-    __author__,
-    __version__,
-)
+from .__version__ import __author__, __version__
+from .api import connect, consume, disconnect, get, publish, publish_all
+from .config import set_cfg_var as configure
+
+__all__ = [
+    "publish",
+    "configure",
+    "__version__",
+    "consume",
+    "get",
+    "publish_all",
+    "connect",
+    "disconnect",
+]
