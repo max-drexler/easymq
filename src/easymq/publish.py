@@ -119,6 +119,7 @@ class Publisher:
     def __del__(self) -> None:
         self.close()
         self._credentials = None
+        self._publisher = None
 
     def __eq__(self, __o: object) -> bool:
         if isinstance(__o, str):

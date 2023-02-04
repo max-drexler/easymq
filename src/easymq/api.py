@@ -1,13 +1,14 @@
 from typing import Iterable, Union, Tuple, Optional, Callable
 
+from .session import get_current_session
 
 # Server connection API
 def connect(*args, credentials=None, add=False) -> None:
-    pass
+    get_current_session().connect(*args, credentials=credentials, add=add)
 
 
 def disconnect(*args) -> None:
-    pass
+    get_current_session().disconnect(*args)
 
 
 # Publishing API

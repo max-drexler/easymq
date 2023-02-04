@@ -95,9 +95,20 @@ If you don't want to call configure
 
 ## Contributing
 
-Open to contributions, currently looking to create a consumer class.
+Contributions welcome!  
+Docker is required to run tests. To setup the testing environment run  
 
-Please use mypy and  flake8 for linting and pytest for testing.
+```
+make start_rabbitmq
+```
+
+This will create a docker image running a rabbitmq server. Use
+
+```
+make stop_rabbitmq
+```
+
+to stop the container after testing is finished.
 
 ## Authors
 

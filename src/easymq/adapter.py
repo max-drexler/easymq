@@ -3,7 +3,7 @@ import socket
 import threading
 import time
 from contextlib import contextmanager
-from typing import Callable, Optional, Tuple
+from typing import Any, Callable, Optional, Tuple
 
 import pika
 from pika.adapters.blocking_connection import BlockingChannel
@@ -167,6 +167,18 @@ class PikaConnection(threading.Thread):
 
     def __del__(self) -> None:
         self.close()
+        self._connection = None
+
+    def __eq__(self, _obj: Any) -> bool:
+        if isinstance(_obj, str):
+            return _obj == self.server
+        elif isinstance(_obj, PikaConnection):
+            return id(self) == id(_obj)
+        else:
+            return False
+
+    def __hash__(self) -> int:
+        return id(self)
 
 
 class PikaClient:
@@ -399,6 +411,7 @@ class PikaClient:
 
     def __del__(self) -> None:
         self.close()
+        self._server_conn = None
 
     def __enter__(self):
         return self
