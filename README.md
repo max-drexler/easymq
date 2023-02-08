@@ -95,20 +95,13 @@ If you don't want to call configure
 
 ## Contributing
 
-Contributions welcome!  
-Docker is required to run tests. To setup the testing environment run  
+Contributions welcome! Currently need to implement consumption behavior.  
+Docker and pip are required to run tests.  
+To run tests simply use the Makefile:
 
 ```
-make start_rabbitmq
+make test
 ```
-
-This will create a docker image running a rabbitmq server. Use
-
-```
-make stop_rabbitmq
-```
-
-to stop the container after testing is finished.
 
 ## Authors
 

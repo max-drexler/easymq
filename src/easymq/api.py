@@ -2,21 +2,25 @@ from typing import Iterable, Union, Tuple, Optional, Callable
 
 from .session import get_current_session
 
+
 # Server connection API
-def connect(*args, credentials=None, add=False) -> None:
-    get_current_session().connect(*args, credentials=credentials, add=add)
+def connect(*args, auth: Tuple[Optional[str], Optional[str]] = (None, None)) -> None:
+    get_current_session().connect(*args, auth=auth)
 
 
 def disconnect(*args) -> None:
     get_current_session().disconnect(*args)
 
 
+def connect_url(*args) -> None:
+    pass
+
+
 # Publishing API
 def publish(
-    message,
+    message: str,
     key: Optional[str] = None,
     name: Optional[str] = None,
-    type: str = "exchange",
     block=False,
     timeout: Optional[float] = None,
 ) -> None:
@@ -26,10 +30,29 @@ def publish(
 def publish_all(
     messages: Iterable[Union[str, Tuple[str, str]]],
     name: Optional[str] = None,
-    type: str = "exchange",
     block=False,
     timeout: Optional[float] = None,
 ) -> None:
+    pass
+
+
+def publish_to_queue(
+    message: str,
+    key: Optional[str] = None,
+    name: Optional[str] = None,
+    block=False,
+    timeout: Optional[float] = None,
+):
+    pass
+
+
+def publish_all_to_queue(
+    message: str,
+    key: Optional[str] = None,
+    name: Optional[str] = None,
+    block=False,
+    timeout: Optional[float] = None,
+):
     pass
 
 
@@ -41,7 +64,7 @@ def get(
     timeout: Optional[float] = None,
     type: str = "exchange",
 ) -> Union[str, None]:
-    pass
+    raise NotImplementedError
 
 
 def consume(
@@ -50,4 +73,4 @@ def consume(
     key: Optional[str] = None,
     type: str = "exchange",
 ) -> None:
-    pass
+    raise NotImplementedError

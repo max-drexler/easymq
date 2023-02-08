@@ -405,9 +405,9 @@ class PikaClient:
         self._processing.clear()
         if self._processing_error is None:
             return
-        err = self._processing_error
+        err = to_raise or self._processing_error
         self._processing_error = None
-        raise to_raise or err
+        raise err
 
     def __del__(self) -> None:
         self.close()

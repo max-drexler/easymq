@@ -5,45 +5,14 @@ easymq.session
 This module contains objects and functions to maintain a long-term amqp session.
 """
 
-from typing import List
+import warnings
+from typing import List, Optional, Tuple
 
-import pika
-
-from .connection import ServerConnection, get_connection_params
+from .exceptions import NotAuthenticatedError, NotConnectedError
+from .connection import ConnectionPool, ServerConnection, ReconnectConnection
+from .config import DEFAULT_SERVER
 
 _CURRENT_SESSION = None
-
-
-class AmqpSession:
-    def __init__(self) -> None:
-        self._connections: List[ServerConnection] = []
-
-    def __del__(self) -> None:
-        pass
-
-    def disconnect(self, *args) -> None:
-        if not args:
-            [x.close() for x in self._connections]
-        else:
-            for serv in args:
-                try:
-                    con_index = self._connections.index(serv)
-                except ValueError:
-                    continue
-                connection = self._connections.pop(con_index)
-                connection.close()
-
-    def connect(self, *args, credentials=None, add=False) -> None:
-        for serv in args:
-            try:
-                if serv in self._connections:
-                    continue
-                self._connections.append(
-                    ServerConnection(get_connection_params(host=serv))
-                )
-            except Exception as e:
-                self.disconnect()
-                raise e
 
 
 def get_current_session():
@@ -51,3 +20,54 @@ def get_current_session():
     if _CURRENT_SESSION is None:
         _CURRENT_SESSION = AmqpSession()
     return _CURRENT_SESSION
+
+
+class AmqpSession:
+
+    def __init__(self) -> None:
+        self._connections = ConnectionPool()
+        try:
+            self.connect(DEFAULT_SERVER)
+        except (NotAuthenticatedError, ConnectionError):
+            warnings.warn(f"Couldn't connect to default server {DEFAULT_SERVER}")
+
+    def disconnect(self, *args) -> None:
+        if not args:
+            self._connections.remove_all()
+        else:
+            [self._connections.remove_server(serv) for serv in args]
+
+    def connect(self, *args, auth: Tuple[Optional[str], Optional[str]] = (None, None)) -> None:
+        for server in args:
+            try:
+                self._connections.add_server(server, auth=auth)
+            except (NotAuthenticatedError, ConnectionError):
+                raise
+
+    @property
+    def connections(self) -> List[ServerConnection]:
+        return self._connections
+
+    @property
+    def connections_required(self) -> List[ServerConnection]:
+        if not self._connections:
+            raise NotConnectedError("Not currently connected to any servers, call easymq.connect()")
+        return self.connections
+
+    def wait_for_reconnect(self, timeout=None) -> None:
+        for server in self._connections:
+            if isinstance(server, ReconnectConnection):
+                server.wait_for_reconnect(timeout=timeout)
+
+    def __str__(self) -> str:
+        return f"[Amqp Session] connected to: {', '.join(self._connections)}"
+
+    def __del__(self) -> None:
+        self.disconnect()
+        self._connections = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args) -> None:
+        self.disconnect()
