@@ -5,12 +5,24 @@ from enum import Enum, auto
 
 from pika.exceptions import ChannelClosedByBroker
 
+from ..session import get_current_session, connection_required
+
 
 class ExchangeTypes(Enum):
-    DIRECT = auto(),
-    TOPIC = auto(),
-    FANOUT = auto(),
-    HEADER = auto(),
+    DIRECT = (auto(),)
+    TOPIC = (auto(),)
+    FANOUT = (auto(),)
+    HEADER = (auto(),)
+
+
+def __declare_exchange(*args, **kwargs) -> None:
+    print(args)
+    print(kwargs)
+
+
+@connection_required
+def exchange_declare(*args, **kwargs):
+    get_current_session().pool.add_callback(__declare_exchange, *args, **kwargs)
 
 
 class TopologyEditor:
@@ -72,7 +84,7 @@ class TopologyEditor:
     def exchange_declare(
         self,
         exchange_name: str,
-        exchange_type: str = "direct",
+        exchange_type: ExchangeTypes = ExchangeTypes.DIRECT,
         durable=False,
         auto_delete=False,
         internal=False,

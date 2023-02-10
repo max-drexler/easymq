@@ -1,4 +1,4 @@
-.PHONY: stop_rabbitmq check_rabbitmq test tox
+.PHONY: stop_rabbitmq check_rabbitmq run_tests
 
 RABBIT_MQ_CONTAINER_NAME:=rabbitmq
 RABBIT_MQ_IMAGE:=rabbitmq:3-management

@@ -2,7 +2,7 @@ from contextlib import contextmanager
 import socket
 import threading
 import time
-from typing import Any, Callable, List, Optional, Tuple
+from typing import Any, Callable, Generator, List, Optional, Tuple
 
 import pika
 from pika.adapters.blocking_connection import BlockingChannel
@@ -72,7 +72,7 @@ class ServerConnection(threading.Thread):
         return self._connection.is_open
 
     @contextmanager
-    def prepare_connection(self) -> None:
+    def prepare_connection(self):
         if not self.is_running:
             raise ConnectionAbortedError("Lost connection to RabbitMQ Server")
         yield
@@ -88,10 +88,10 @@ class ServerConnection(threading.Thread):
 
     def connect(self) -> None:
         if self._connection is not None and self._connection.is_open:
-            self.__channel_setup()
+            self._channel_setup()
         try:
             self._connection = pika.BlockingConnection(parameters=self._con_params)
-            self.__channel_setup()
+            self._channel_setup()
         except (socket.gaierror, socket.herror):
             raise ConnectionError("Could not connect to server")
         except (
@@ -109,7 +109,7 @@ class ServerConnection(threading.Thread):
         if self._connection.is_open:
             self._connection.close()
 
-    def __channel_setup(self) -> None:
+    def _channel_setup(self) -> None:
         if self._channel is None or self._channel.is_closed:
             self._channel = self._connection.channel()
         if self._confirmed_channel is None or self._confirmed_channel.is_closed:
@@ -120,11 +120,11 @@ class ServerConnection(threading.Thread):
         self._connection.add_callback_threadsafe(lambda: callback(*args, **kwargs))
 
     def _reconnect_channel(self) -> None:
-        self.__channel_setup()
+        self._channel_setup()
 
     def __del__(self) -> None:
         self.close()
-        self._connection = None
+        del self._connection
 
     def __eq__(self, _obj: Any) -> bool:
         if isinstance(_obj, str):
@@ -149,7 +149,7 @@ class ReconnectConnection(ServerConnection):
     ) -> None:
         self._reconnecting = threading.Event()
         self._reconnecting.set()  # not currently reconnecting, threads shouldn't wait
-        self._reconnecting_callbacks = []
+        self._reconnecting_callbacks: List[Tuple[Callable, Any, Any]] = []
 
         super().__init__(host, port, vhost, username, password)
 
@@ -197,13 +197,13 @@ class ReconnectConnection(ServerConnection):
     def __process_blocked_callbacks(self) -> None:
         while len(self._reconnecting_callbacks) > 0:
             callback, args, kwargs = self._reconnecting_callbacks.pop()
-            self._connection.call_later(0, lambda: callback(*args, **kwargs))
+            _ = self._connection.call_later(0, lambda: callback(*args, **kwargs))
 
     def add_callback(self, callback: Callable, *args, **kwargs) -> None:
         if self.is_reconnecting:
             self._reconnecting_callbacks.insert(0, (callback, args, kwargs))
         else:
-            super().add_callback(callback, args, kwargs)
+            super().add_callback(callback, *args, **kwargs)
 
     def wait_for_reconnect(self, timeout=None) -> bool:
         self._reconnecting.wait(timeout=timeout)
@@ -211,16 +211,20 @@ class ReconnectConnection(ServerConnection):
 
     def _reconnect_channel(self) -> None:
         self.wait_for_reconnect()
-        self.__channel_setup()
+        self._channel_setup()
 
-    def prepare_connection(self) -> None:
+    def prepare_connection(self):
         self.wait_for_reconnect()
-        return super().prepare_connection()
+        return super().prepare_connection() # need this return
 
 
 class ConnectionPool:
     def __init__(self) -> None:
         self._connections: List[ServerConnection] = []
+
+    @property
+    def connections(self) -> List[ServerConnection]:
+        return self._connections
 
     def _remove_connection(self, server: str) -> None:
         try:
@@ -230,7 +234,7 @@ class ConnectionPool:
         connection = self._connections.pop(con_index)
         connection.close()
 
-    def add_server(self, new_server: str, auth: Tuple[str, str] = (None, None)) -> None:
+    def add_server(self, new_server: str, auth: Tuple[Optional[str], Optional[str]] = (None, None)) -> None:
         self._remove_connection(new_server)  # Remove connection if it already exists
         self._connections.append(
             ReconnectConnection(
@@ -248,4 +252,15 @@ class ConnectionPool:
         self._remove_connection(server)
 
     def remove_all(self) -> None:
-        [self._remove_connection(con.server) for con in self._connections]
+        for con in self._connections:
+            self._remove_connection(con.server)
+
+    def __len__(self) -> int:
+        return len(self._connections)
+
+    def __iter__(self):
+        return iter(self._connections)
+
+    def add_callback(self, callback, *args, **kwargs) -> None:
+        for con in self._connections:
+            con.add_callback(callback, (con,) + args, **kwargs)

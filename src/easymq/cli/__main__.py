@@ -4,14 +4,14 @@ from typing import List, Optional
 import warnings
 
 import easymq.config as cfg
-from easymq.config import set_cfg_var, CURRENT_CONFIG
+from easymq.config import configure, CURRENT_CONFIG
 from easymq import __version__
-from ..api import publish
+from ..session import get_current_session
 
 vInfoStr = f"EasyMQ {__version__}"
 
 
-def list_cfg_vars(print_values: bool) -> int:
+def list_cfg_vars(print_values: bool) -> None:
     print("EasyMQ configuration variables:\n")
     for cfg_var in CURRENT_CONFIG:
         print(cfg_var, end="")
@@ -102,16 +102,24 @@ def main(argv: Optional[List[str]] = None):
 
     sub_command = getattr(args, "cmd")
     if sub_command == "publish":
-        publish()
+        get_current_session().connect(
+            *getattr(args, "servers"),
+            auth=(getattr(args, "username"), getattr(args, "password")),
+        )
+        get_current_session().publish_all(
+            getattr(args, "messages"), exchange=getattr(args, "exchange")
+        )
     elif sub_command == "consume":
         print("command line consumption is not yet implemented!")
     elif sub_command == "set":
-        warnings.filterwarnings('error')
+        warnings.filterwarnings("error")
         var = getattr(args, "variable")
         val = getattr(args, "value")
         try:
-            set_cfg_var(var, val, durable=True)
-            print(f"variable '{var}' set to '{val}' in config file at '{cfg.CONFIG_PATH}'")
+            configure(var, val, durable=True)
+            print(
+                f"variable '{var}' set to '{val}' in config file at '{CURRENT_CONFIG.path}'"
+            )
         except Exception:
             raise
     elif sub_command == "list":

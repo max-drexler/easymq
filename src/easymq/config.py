@@ -1,24 +1,16 @@
+from dataclasses import dataclass
 import json
 import os
-import sys
 import warnings
 from typing import Dict, Callable, Union, Any
 from platformdirs import PlatformDirs
 
 
-_cur_module = sys.modules[__name__]
-
-# When the user doesn't specify any values, these are used
-BASE_VALUES: Dict[str, Union[str, int, float]] = {
-    "RECONNECT_DELAY": 5.0,
-    "RECONNECT_TRIES": 3,
-    "DEFAULT_SERVER": "localhost",
-    "DEFAULT_EXCHANGE": "",
-    "DEFAULT_USER": "guest",
-    "DEFAULT_PASS": "guest",
-    "DEFAULT_ROUTE_KEY": "",
-    "RABBITMQ_PORT": 5672,
-}
+config_values = Union[str, int, float]
+config_file_name = "cfg_vars.json"
+config_file_path = os.path.join(
+    PlatformDirs("easymq").user_config_dir, config_file_name
+)
 
 
 def verify_pos_float(_obj: Any) -> float:
@@ -44,91 +36,119 @@ def verify_msg_buf_policy(_obj: Any) -> int:
     return new_policy
 
 
-# Used to verify the values of configuration variables
-# Callable should raise ValueError if value is incorrect
-VERIFY_VALUE: Dict[str, Callable] = {
-    "RECONNECT_DELAY": verify_pos_float,
-    "RECONNECT_TRIES": int,
-    "DEFAULT_SERVER": str,
-    "DEFAULT_EXCHANGE": str,
-    "DEFAULT_USER": str,
-    "DEFAULT_PASS": str,
-    "DEFAULT_ROUTE_KEY": str,
-    "RABBITMQ_PORT": verify_pos_int,
-}
+@dataclass
+class Variable:
+    name: str
+    default_value: config_values
+    verify_func: Callable
+    current_value: config_values = None
+
+    def __post_init__(self):
+        if self.current_value is None:
+            self.current_value = self.default_value
+
+    def __eq__(self, __obj: Any) -> bool:
+        if isinstance(__obj, str):
+            return self.name == __obj
+        return (self.name, self.current_value) == __obj
+
+    def __str__(self) -> str:
+        return f"{self.name}"
 
 
-RECONNECT_DELAY = BASE_VALUES["RECONNECT_DELAY"]
-RECONNECT_TRIES = BASE_VALUES["RECONNECT_TRIES"]
-DEFAULT_SERVER = BASE_VALUES["DEFAULT_SERVER"]
-DEFAULT_EXCHANGE = BASE_VALUES["DEFAULT_EXCHANGE"]
-DEFAULT_USER = BASE_VALUES["DEFAULT_USER"]
-DEFAULT_PASS = BASE_VALUES["DEFAULT_PASS"]
-DEFAULT_ROUTE_KEY = BASE_VALUES["DEFAULT_ROUTE_KEY"]
-RABBITMQ_PORT = BASE_VALUES["RABBITMQ_PORT"]
+class Configuration:
 
-CURRENT_CONFIG = BASE_VALUES
-CONFIG_PATH = None
+    DEFAULT_VARIABLES = [
+        Variable("RECONNECT_DELAY", 5.0, verify_pos_float),
+        Variable("RECONNECT_TRIES", 3, int),
+        Variable("DEFAULT_SERVER", "localhost", str),
+        Variable("DEFAULT_EXCHANGE", "", str),
+        Variable("DEFAULT_USER", "guest", str),
+        Variable("DEFAULT_PASS", "guest", str),
+        Variable("DEFAULT_ROUTE_KEY", "", str),
+        Variable("RABBITMQ_PORT", 5672, verify_pos_int),
+    ]
 
+    def __init__(self, _config_file_path=None) -> None:
+        self._variables = {v.name: v for v in Configuration.DEFAULT_VARIABLES}
+        self._config_file_path = _config_file_path or config_file_path
 
-def get_default_config() -> str:
-    return json.dumps(BASE_VALUES, indent=4)
+    @property
+    def path(self) -> str:
+        return self._config_file_path
 
-
-def get_current_config() -> str:
-    return json.dumps(CURRENT_CONFIG, indent=4)
-
-
-def load_config_from_file(cfg_file_path: str) -> None:
-    try:
-        with open(cfg_file_path, "r", encoding="utf-8") as cfg_file:
-            new_cfg_file: Dict = json.load(cfg_file)
-    except json.decoder.JSONDecodeError:
-        warnings.warn(
-            f"file '{cfg_file_path}' has incorrectly formatted JSON, using default values instead"
+    @property
+    def json(self) -> str:
+        return json.dumps(
+            {v.name: v.current_value for v in self._variables.values()}, indent=4
         )
-        return
-    except IOError as e:
-        warnings.warn(
-            f"Error loading config '{cfg_file_path}': [{e.errno}] {e.strerror}"
+
+    @property
+    def default_json(self) -> str:
+        return json.dumps(
+            {v.name: v.default_value for v in self._variables.values()}, indent=4
         )
-        return
 
-    for config_var in new_cfg_file:
-        set_cfg_var(config_var, new_cfg_file[config_var])
+    @classmethod
+    def load_from_file(cls, file_path: str):
+        new_configuration = Configuration(file_path)
+        try:
+            with open(file_path, "r", encoding="utf-8") as cfg_file:
+                new_cfg_file: Dict = json.load(cfg_file)
+        except (json.decoder.JSONDecodeError, IOError) as e:
+            warnings.warn(
+                f"Couldn't load config from '{file_path}' because of {e} using default values"
+            )
+            return new_configuration
 
+        for (k, v) in new_cfg_file.items():
+            try:
+                new_configuration.set(k, v)
+            except (AttributeError, ValueError) as e:
+                warnings.warn(f"Couldn't set variable '{k}' because '{e}'")
+        return new_configuration
 
-def set_cfg_var(config_var: str, value: Any, durable=False) -> None:
-    config_var = config_var.upper()
-    try:
-        new_value = BASE_VALUES[config_var] if value is None else VERIFY_VALUE[config_var](value)
-    except (KeyError, AttributeError):
-        warnings.warn(f"configuration variable '{config_var}' doesn't exist!")
-        return
-    except ValueError:
-        warnings.warn(
-            f"Cannot set {config_var} to '{value}', using default value instead."
+    def set(self, variable_name: str, value: Any, durable=False) -> None:
+        variable = self._variables.get(variable_name)
+        if variable is None:
+            raise AttributeError(f"Variable '{variable_name} doesn't exist")
+        new_value = (
+            variable.default_value if value is None else variable.verify_func(value)
         )
-        return
-    setattr(_cur_module, config_var, new_value)
-    CURRENT_CONFIG[config_var] = new_value
-    if durable:
-        with open(CONFIG_PATH, 'w') as cfg_file:
-            cfg_file.write(get_current_config())
+        variable.current_value = new_value
+        if durable:
+            self._write()
+
+    def get(self, variable_name: str) -> config_values:
+        variable = self._variables.get(variable_name)
+        if variable is None:
+            raise AttributeError(f"Variable '{variable_name} doesn't exist")
+        return variable.current_value
+
+    def _write(self) -> None:
+        os.makedirs(os.path.dirname(self._config_file_path), exist_ok=True)
+        with open(self._config_file_path, "w", encoding="utf-8") as cfg:
+            cfg.write(self.json)
 
 
-def _init() -> None:
-    # setup user config file in the user directory
-    usr_cfg_dir = PlatformDirs("easymq").user_config_dir
-    os.makedirs(usr_cfg_dir, exist_ok=True)
-    usr_cfg_file = os.path.join(usr_cfg_dir, 'variables.json')
-    if not os.path.isfile(usr_cfg_file):
-        with open(usr_cfg_file, 'w') as cfg_file:
-            cfg_file.write(get_default_config())
-
-    global CONFIG_PATH
-    CONFIG_PATH = os.environ.get("EASYMQ_CONFIG", usr_cfg_file)
-    load_config_from_file(CONFIG_PATH)
+CURRENT_CONFIG = Configuration.load_from_file(
+    file_path=os.getenv("EASYMQ_CONFIG", config_file_path)
+)
 
 
-_init()
+RECONNECT_DELAY = CURRENT_CONFIG.get("RECONNECT_DELAY")
+RECONNECT_TRIES = CURRENT_CONFIG.get("RECONNECT_TRIES")
+DEFAULT_SERVER = CURRENT_CONFIG.get("DEFAULT_SERVER")
+DEFAULT_EXCHANGE = CURRENT_CONFIG.get("DEFAULT_EXCHANGE")
+DEFAULT_USER = CURRENT_CONFIG.get("DEFAULT_USER")
+DEFAULT_PASS = CURRENT_CONFIG.get("DEFAULT_PASS")
+DEFAULT_ROUTE_KEY = CURRENT_CONFIG.get("DEFAULT_ROUTE_KEY")
+RABBITMQ_PORT = CURRENT_CONFIG.get("RABBITMQ_PORT")
+
+
+def configure(variable_name: str, *args, durable=False):
+    variable_name = variable_name.upper()
+    if not args:
+        print(CURRENT_CONFIG.get(variable_name))
+    else:
+        CURRENT_CONFIG.set(variable_name, args[0], durable=durable)

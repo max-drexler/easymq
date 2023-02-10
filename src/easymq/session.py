@@ -5,12 +5,13 @@ easymq.session
 This module contains objects and functions to maintain a long-term amqp session.
 """
 
-import warnings
-from typing import List, Optional, Tuple
+from typing import Any, Callable, Iterable, List, Optional, Tuple, Union
 
+from .publish import AmqpPublisher
 from .exceptions import NotAuthenticatedError, NotConnectedError
-from .connection import ConnectionPool, ServerConnection, ReconnectConnection
-from .config import DEFAULT_SERVER
+from .connection import ConnectionPool
+from .message import Packet, Message
+from .config import DEFAULT_SERVER, DEFAULT_ROUTE_KEY, DEFAULT_EXCHANGE
 
 _CURRENT_SESSION = None
 
@@ -22,49 +23,83 @@ def get_current_session():
     return _CURRENT_SESSION
 
 
-class AmqpSession:
+def connection_required(func: Callable) -> Callable:
+    def check_conn(*args, **kwargs):
+        if len(get_current_session().servers) > 0:
+            func(*args, **kwargs)
+            return
 
+        try:
+            get_current_session().connect(DEFAULT_SERVER)
+            func(*args, **kwargs)
+            return
+        except (NotAuthenticatedError, ConnectionError, AttributeError):
+            raise NotConnectedError(
+                f"Need to be connected to a server, could not connect to default '{DEFAULT_SERVER}"
+            )
+    return check_conn
+
+
+class AmqpSession:
     def __init__(self) -> None:
         self._connections = ConnectionPool()
-        try:
-            self.connect(DEFAULT_SERVER)
-        except (NotAuthenticatedError, ConnectionError):
-            warnings.warn(f"Couldn't connect to default server {DEFAULT_SERVER}")
+        self._publisher = AmqpPublisher()
+
+    @property
+    def servers(self) -> List[str]:
+        return [con.server for con in self._connections]
+
+    @property
+    def pool(self) -> ConnectionPool:
+        return self._connections
+
+    @connection_required
+    def publish(
+        self,
+        message: Union[Message, Any],
+        key: Optional[str] = None,
+        exchange: Optional[str] = None,
+        block=False,
+    ):
+        pckt = Packet(
+            message if isinstance(message, Message) else Message(message),
+            key or DEFAULT_ROUTE_KEY,
+            exchange or DEFAULT_EXCHANGE,
+            confirm=block,
+        )
+        self._publisher.publish_to_pool(self._connections, pckt)
+
+    @connection_required
+    def publish_all(
+        self,
+        messages: Iterable[Union[str, Tuple[str, str]]],
+        exchange: Optional[str] = None,
+        block=False,
+    ):
+        pass
 
     def disconnect(self, *args) -> None:
         if not args:
             self._connections.remove_all()
         else:
-            [self._connections.remove_server(serv) for serv in args]
+            for serv in args:
+                self._connections.remove_server(serv)
 
-    def connect(self, *args, auth: Tuple[Optional[str], Optional[str]] = (None, None)) -> None:
+    def connect(
+        self, *args, auth: Tuple[Optional[str], Optional[str]] = (None, None)
+    ) -> None:
         for server in args:
             try:
                 self._connections.add_server(server, auth=auth)
             except (NotAuthenticatedError, ConnectionError):
                 raise
 
-    @property
-    def connections(self) -> List[ServerConnection]:
-        return self._connections
-
-    @property
-    def connections_required(self) -> List[ServerConnection]:
-        if not self._connections:
-            raise NotConnectedError("Not currently connected to any servers, call easymq.connect()")
-        return self.connections
-
-    def wait_for_reconnect(self, timeout=None) -> None:
-        for server in self._connections:
-            if isinstance(server, ReconnectConnection):
-                server.wait_for_reconnect(timeout=timeout)
-
     def __str__(self) -> str:
-        return f"[Amqp Session] connected to: {', '.join(self._connections)}"
+        return f"[Amqp Session] connected to: {', '.join(self.connections)}"
 
     def __del__(self) -> None:
         self.disconnect()
-        self._connections = None
+        del self._connections
 
     def __enter__(self):
         return self
