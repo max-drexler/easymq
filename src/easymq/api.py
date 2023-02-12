@@ -40,7 +40,7 @@ def publish_to_queue(
     name: Optional[str] = None,
     block=False,
 ):
-    pass
+    raise NotImplementedError("Coming soon to an easymq near you")
 
 
 def publish_all_to_queue(
@@ -49,7 +49,7 @@ def publish_all_to_queue(
     name: Optional[str] = None,
     block=False,
 ):
-    pass
+    raise NotImplementedError("Coming soon to an easymq near you")
 
 
 # Consuming API *implement later
@@ -60,8 +60,7 @@ def get(
     timeout: Optional[float] = None,
     type: str = "exchange",
 ) -> Union[str, None]:
-    raise NotImplementedError
-
+    raise NotImplementedError("Coming soon to an easymq near you")
 
 def consume(
     callback: Callable,
@@ -69,4 +68,4 @@ def consume(
     key: Optional[str] = None,
     type: str = "exchange",
 ) -> None:
-    raise NotImplementedError
+    raise NotImplementedError("Coming soon to an easymq near you")

@@ -17,3 +17,5 @@ __all__ = [
     "exchange_check",
     "queue_check",
 ]
+
+raise NotImplementedError("Coming soon to an easymq near you")

@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 import threading
-from typing import Optional
+from typing import Generator, Optional
 from enum import Enum, auto
 
 from pika.exceptions import ChannelClosedByBroker
@@ -15,6 +15,22 @@ class ExchangeTypes(Enum):
     HEADER = (auto(),)
 
 
+_editing = threading.Event()
+_editing.set() # Not currently editing, don't want threads to block
+_editing_error = None
+
+@contextmanager
+def sync_connection(to_raise: Optional[Exception] = None) -> Generator[None, None, None]:
+    _editing.clear()
+    yield
+    _editing.wait()
+    if _editing_error is None:
+        return
+    err = to_raise or _editing_error
+    _editing_error = None
+    raise err
+
+
 def __declare_exchange(*args, **kwargs) -> None:
     print(args)
     print(kwargs)
@@ -27,30 +43,7 @@ def exchange_declare(*args, **kwargs):
 
 class TopologyEditor:
     def __init__(self) -> None:
-        self._processing = threading.Event()
-        self._processing_error = None
-
-    @contextmanager
-    def _sync_caller(self) -> None:
-        try:
-            self._server_conn.wait_for_reconnect()
-            yield
-        except ChannelClosedByBroker as e:
-            self._processing_error = e
-            self._server_conn._reconnect_channel()
-        except Exception as e:
-            self._processing_error = e
-        finally:
-            self._processing.set()
-
-    @contextmanager
-    def sync_connection(self) -> None:
-        try:
-            self._server_conn.wait_for_reconnect()
-            yield
-        finally:
-            self._wait_for_processing()
-
+        pass
     def check_exchange(self, new_exchange: str) -> bool:
         self._server_conn.wait_for_reconnect()
         self._server_conn.add_callback(
@@ -222,12 +215,12 @@ class TopologyEditor:
         Raises:
             to_raise: Either the exception that occurred in the backend or the custom exception
         """
-        self._processing.wait()
-        self._processing.clear()
-        if self._processing_error is None:
+        self._editing.wait()
+        self._editing.clear()
+        if self._editing_error is None:
             return
-        err = to_raise or self._processing_error
-        self._processing_error = None
+        err = to_raise or self._editing_error
+        self._editing_error = None
         raise err
 
     def __del__(self) -> None:

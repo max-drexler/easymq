@@ -96,9 +96,10 @@ class Configuration:
             with open(file_path, "r", encoding="utf-8") as cfg_file:
                 new_cfg_file: Dict = json.load(cfg_file)
         except (json.decoder.JSONDecodeError, IOError) as e:
-            warnings.warn(
-                f"Couldn't load config from '{file_path}' because of {e} using default values"
-            )
+            if file_path != config_file_path:
+                warnings.warn(
+                    f"Couldn't load config from '{file_path}' because of {e} using default values"
+                )
             return new_configuration
 
         for (k, v) in new_cfg_file.items():

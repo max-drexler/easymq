@@ -6,6 +6,7 @@ from easymq.connection import ConnectionPool, ServerConnection
 
 from .message import Packet
 
+# Possible problem with lock when publishing to multiple servers
 
 class AmqpPublisher:
     def __init__(self) -> None:
