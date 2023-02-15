@@ -2,7 +2,7 @@ from contextlib import contextmanager
 import socket
 import threading
 import time
-from typing import Any, Callable, Generator, List, Optional, Tuple
+from typing import Any, Callable, List, Optional, Tuple
 
 import pika
 from pika.adapters.blocking_connection import BlockingChannel
@@ -14,13 +14,7 @@ from pika.exceptions import (
     ProbableAuthenticationError,
 )
 
-from .config import (
-    RECONNECT_DELAY,
-    RECONNECT_TRIES,
-    RABBITMQ_PORT,
-    DEFAULT_USER,
-    DEFAULT_PASS,
-)
+from .config import CURRENT_CONFIG
 from .exceptions import NotAuthenticatedError
 
 
@@ -40,10 +34,11 @@ class ServerConnection(threading.Thread):
         self._confirmed_channel: BlockingChannel = None
         self._con_params = pika.ConnectionParameters(
             host=host,
-            port=port or RABBITMQ_PORT,
+            port=port or CURRENT_CONFIG.get("RABBITMQ_PORT"),
             virtual_host=vhost or "/",
             credentials=pika.PlainCredentials(
-                username or DEFAULT_USER, password or DEFAULT_PASS
+                username or CURRENT_CONFIG.get("DEFAULT_USER"),
+                password or CURRENT_CONFIG.get("DEFAULT_PASS"),
             ),
         )
 
@@ -101,13 +96,16 @@ class ServerConnection(threading.Thread):
         ):
             raise NotAuthenticatedError("Not authenticated to connect to server")
 
+    def _close(self) -> None:
+        self._connection.process_data_events(time_limit=1)
+        if self._connection.is_open:
+            self._connection.close()
+
     def close(self) -> None:
         self._running = False
         if self._connection is None or self._connection.is_closed:
             return
-        self._connection.process_data_events(time_limit=1)
-        if self._connection.is_open:
-            self._connection.close()
+        self.add_callback(self._close)
 
     def _channel_setup(self) -> None:
         if self._channel is None or self._channel.is_closed:
@@ -172,13 +170,14 @@ class ReconnectConnection(ServerConnection):
 
     def __reconnect(self) -> None:
         self._reconnecting.clear()
-        tries = RECONNECT_TRIES
+        tries = CURRENT_CONFIG.get("RECONNECT_TRIES")
         while self._running:
             if tries == 0:
                 self._reconnecting.set()
                 self.close()
                 raise RuntimeWarning(
-                    f"Could not reconnect to {self.server} after {RECONNECT_TRIES} attempt(s), exiting..."
+                    f"Could not reconnect to {self.server} after \
+                    {CURRENT_CONFIG.get('RECONNECT_TRIES')} attempt(s), exiting..."
                 )
             try:
                 self.connect()
@@ -187,7 +186,7 @@ class ReconnectConnection(ServerConnection):
             except AMQPConnectionError:
                 pass
             if self._running:
-                time.sleep(RECONNECT_DELAY)
+                time.sleep(CURRENT_CONFIG.get("RECONNECT_DELAY"))
             if tries < 0:
                 continue
             tries -= 1
@@ -215,7 +214,7 @@ class ReconnectConnection(ServerConnection):
 
     def prepare_connection(self):
         self.wait_for_reconnect()
-        return super().prepare_connection() # need this return
+        return super().prepare_connection()  # need this return
 
 
 class ConnectionPool:
@@ -234,13 +233,15 @@ class ConnectionPool:
         connection = self._connections.pop(con_index)
         connection.close()
 
-    def add_server(self, new_server: str, auth: Tuple[Optional[str], Optional[str]] = (None, None)) -> None:
+    def add_server(
+        self, new_server: str, auth: Tuple[Optional[str], Optional[str]] = (None, None)
+    ) -> None:
         self._remove_connection(new_server)  # Remove connection if it already exists
         self._connections.append(
             ReconnectConnection(
                 host=new_server,
-                username=auth[0] or DEFAULT_USER,
-                password=auth[1] or DEFAULT_PASS,
+                username=auth[0],
+                password=auth[1],
             )
         )
 

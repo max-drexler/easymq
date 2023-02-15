@@ -3,7 +3,6 @@ import sys
 from typing import List, Optional
 import warnings
 
-import easymq.config as cfg
 from easymq.config import configure, CURRENT_CONFIG
 from easymq import __version__
 from ..session import get_current_session
@@ -16,7 +15,7 @@ def list_cfg_vars(print_values: bool) -> None:
     for cfg_var in CURRENT_CONFIG:
         print(cfg_var, end="")
         if print_values:
-            print(f"={getattr(cfg, cfg_var)}", end="")
+            print(f"={CURRENT_CONFIG.get(cfg_var)}", end="")
         print("")
     print()
 
@@ -57,14 +56,14 @@ def main(argv: Optional[List[str]] = None):
     publish_parser.add_argument(
         "-s",
         "--servers",
-        default=cfg.DEFAULT_SERVER,
+        default=CURRENT_CONFIG.get("DEFAULT_SERVER"),
         nargs="+",
         help="servers to publish message(s) to, default is '%(default)s'",
     )
     publish_parser.add_argument(
         "-e",
         "--exchange",
-        default=cfg.DEFAULT_EXCHANGE,
+        default=CURRENT_CONFIG.get("DEFAULT_EXCHANGE"),
         help="exchange to publish message(s) to, default is '%(default)s'",
     )
     publish_parser.add_argument(
@@ -74,13 +73,13 @@ def main(argv: Optional[List[str]] = None):
         "-u",
         "--username",
         help="username to connect to server with",
-        default=cfg.DEFAULT_USER,
+        default=CURRENT_CONFIG.get("DEFAULT_USER"),
     )
     publish_parser.add_argument(
         "-p",
         "--password",
         help="password to connect to server with",
-        default=cfg.DEFAULT_PASS,
+        default=CURRENT_CONFIG.get("DEFAULT_PASS"),
     )
 
     vConfig_parser.add_argument(

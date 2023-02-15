@@ -1,3 +1,10 @@
+"""
+easymq.api
+~~~~~~~~~~
+
+Methods that are exposed to the user by default
+"""
+
 from typing import Any, Iterable, Union, Tuple, Optional, Callable
 
 from .session import get_current_session
@@ -10,10 +17,6 @@ def connect(*args, auth: Optional[Tuple[Optional[str], Optional[str]]] = (None, 
 
 def disconnect(*args) -> None:
     get_current_session().disconnect(*args)
-
-
-def connect_url(*args) -> None:
-    raise NotImplementedError("Coming soon to an easymq near you")
 
 
 # Publishing API
@@ -34,24 +37,6 @@ def publish_all(
     get_current_session().publish_all(messages, exchange, block)
 
 
-def publish_to_queue(
-    message: str,
-    key: Optional[str] = None,
-    name: Optional[str] = None,
-    block=False,
-):
-    raise NotImplementedError("Coming soon to an easymq near you")
-
-
-def publish_all_to_queue(
-    message: str,
-    key: Optional[str] = None,
-    name: Optional[str] = None,
-    block=False,
-):
-    raise NotImplementedError("Coming soon to an easymq near you")
-
-
 # Consuming API *implement later
 def get(
     name: Optional[str] = None,
@@ -61,6 +46,7 @@ def get(
     type: str = "exchange",
 ) -> Union[str, None]:
     raise NotImplementedError("Coming soon to an easymq near you")
+
 
 def consume(
     callback: Callable,

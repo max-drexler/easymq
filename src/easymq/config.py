@@ -121,7 +121,7 @@ class Configuration:
             self._write()
 
     def get(self, variable_name: str) -> config_values:
-        variable = self._variables.get(variable_name)
+        variable = self._variables.get(variable_name.upper())
         if variable is None:
             raise AttributeError(f"Variable '{variable_name} doesn't exist")
         return variable.current_value
@@ -131,25 +131,18 @@ class Configuration:
         with open(self._config_file_path, "w", encoding="utf-8") as cfg:
             cfg.write(self.json)
 
+    def __iter__(self):
+        return iter(self._variables)
+
 
 CURRENT_CONFIG = Configuration.load_from_file(
     file_path=os.getenv("EASYMQ_CONFIG", config_file_path)
 )
 
 
-RECONNECT_DELAY = CURRENT_CONFIG.get("RECONNECT_DELAY")
-RECONNECT_TRIES = CURRENT_CONFIG.get("RECONNECT_TRIES")
-DEFAULT_SERVER = CURRENT_CONFIG.get("DEFAULT_SERVER")
-DEFAULT_EXCHANGE = CURRENT_CONFIG.get("DEFAULT_EXCHANGE")
-DEFAULT_USER = CURRENT_CONFIG.get("DEFAULT_USER")
-DEFAULT_PASS = CURRENT_CONFIG.get("DEFAULT_PASS")
-DEFAULT_ROUTE_KEY = CURRENT_CONFIG.get("DEFAULT_ROUTE_KEY")
-RABBITMQ_PORT = CURRENT_CONFIG.get("RABBITMQ_PORT")
-
-
-def configure(variable_name: str, *args, durable=False):
+def configure(variable_name: str, *args, durable=False) -> Union[None, config_values]:
     variable_name = variable_name.upper()
     if not args:
-        print(CURRENT_CONFIG.get(variable_name))
+        return CURRENT_CONFIG.get(variable_name)
     else:
         CURRENT_CONFIG.set(variable_name, args[0], durable=durable)

@@ -11,7 +11,7 @@ from .publish import AmqpPublisher
 from .exceptions import NotAuthenticatedError, NotConnectedError
 from .connection import ConnectionPool
 from .message import Packet, Message
-from .config import DEFAULT_SERVER, DEFAULT_ROUTE_KEY, DEFAULT_EXCHANGE
+from .config import CURRENT_CONFIG
 
 _CURRENT_SESSION = None
 
@@ -30,13 +30,15 @@ def connection_required(func: Callable) -> Callable:
             return
 
         try:
-            get_current_session().connect(DEFAULT_SERVER)
+            get_current_session().connect(CURRENT_CONFIG.get("DEFAULT_SERVER"))
             func(*args, **kwargs)
             return
         except (NotAuthenticatedError, ConnectionError, AttributeError):
             raise NotConnectedError(
-                f"Need to be connected to a server, could not connect to default '{DEFAULT_SERVER}"
+                f"Need to be connected to a server,\
+could not connect to default '{CURRENT_CONFIG.get('DEFAULT_SERVER')}"
             )
+
     return check_conn
 
 
@@ -63,8 +65,8 @@ class AmqpSession:
     ):
         pckt = Packet(
             message if isinstance(message, Message) else Message(message),
-            key or DEFAULT_ROUTE_KEY,
-            exchange or DEFAULT_EXCHANGE,
+            key or CURRENT_CONFIG.get("DEFAULT_ROUTE_KEY"),
+            exchange or CURRENT_CONFIG.get("DEFAULT_EXCHANGE"),
             confirm=block,
         )
         self._publisher.publish_to_pool(self._connections, pckt)
@@ -76,7 +78,14 @@ class AmqpSession:
         exchange: Optional[str] = None,
         block=False,
     ):
-        pass
+        for val in messages:
+            key = None
+            msg = None
+            if type(val) is tuple:
+                msg, key = val
+            else:
+                msg = val
+            self.publish(msg, key, exchange=exchange, block=block)
 
     def disconnect(self, *args) -> None:
         if not args:
@@ -95,7 +104,7 @@ class AmqpSession:
                 raise
 
     def __str__(self) -> str:
-        return f"[Amqp Session] connected to: {', '.join(self.connections)}"
+        return f"[Amqp Session] connected to: {', '.join(self.servers)}"
 
     def __del__(self) -> None:
         self.disconnect()
