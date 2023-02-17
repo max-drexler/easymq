@@ -1,9 +1,8 @@
 # EasyMQ Testing
 auth.txt
 
-# EasyMQ User logs
-log/
-EasyMQ.log
+# PyPI token
+pypi_token.txt
 
 # Visual Studio Code setup
 .vscode/
