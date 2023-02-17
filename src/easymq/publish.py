@@ -1,6 +1,7 @@
 from contextlib import contextmanager
 import threading
 from typing import Generator, Optional
+import logging
 
 from easymq.connection import ConnectionPool, ServerConnection
 
@@ -8,6 +9,9 @@ from .message import Packet
 
 # Possible problem with lock when publishing to multiple servers
 # When one server is reconnecting, publishing will pause for all connections!
+
+LOGGER = logging.getLogger(__name__)
+
 
 class AmqpPublisher:
     def __init__(self) -> None:
@@ -19,9 +23,11 @@ class AmqpPublisher:
     def sync_connection(self, to_raise: Optional[Exception] = None) -> Generator[None, None, None]:
         self._publishing.clear()
         yield
+        LOGGER.debug("Waiting for connection thread to finish publishing")
         self._publishing.wait()
         if self._publishing_err is None:
             return
+        LOGGER.warning(f"Error detected while publishing: {self._publishing_err}")
         err = to_raise or self._publishing_err
         self._publishing_err = None
         raise err
@@ -38,6 +44,7 @@ class AmqpPublisher:
                 )
             except Exception as e:
                 self._publishing_err = e
+        LOGGER.info(f"Published {packet} to {connection.server}")
         self._publishing.set()
 
     def publish_to_connection(self, connection: ServerConnection, pckt: Packet) -> None:

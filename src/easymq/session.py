@@ -5,6 +5,8 @@ easymq.session
 This module contains objects and functions to maintain a long-term amqp session.
 """
 
+import atexit
+import logging
 from typing import Any, Callable, Iterable, List, Optional, Tuple, Union
 
 from .publish import AmqpPublisher
@@ -13,7 +15,17 @@ from .connection import ConnectionPool
 from .message import Packet, Message
 from .config import CURRENT_CONFIG
 
+LOGGER = logging.getLogger(__name__)
 _CURRENT_SESSION = None
+
+
+def exit_handler():
+    if _CURRENT_SESSION is None:
+        return
+    _CURRENT_SESSION.disconnect()
+
+
+atexit.register(exit_handler)
 
 
 def get_current_session():
@@ -33,7 +45,8 @@ def connection_required(func: Callable) -> Callable:
             get_current_session().connect(CURRENT_CONFIG.get("DEFAULT_SERVER"))
             func(*args, **kwargs)
             return
-        except (NotAuthenticatedError, ConnectionError, AttributeError):
+        except (NotAuthenticatedError, ConnectionError, AttributeError) as e:
+            LOGGER.critical(f"Error when connecting to default server: {e}")
             raise NotConnectedError(
                 f"Need to be connected to a server,\
 could not connect to default '{CURRENT_CONFIG.get('DEFAULT_SERVER')}"

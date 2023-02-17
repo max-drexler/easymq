@@ -3,6 +3,7 @@ import socket
 import threading
 import time
 from typing import Any, Callable, List, Optional, Tuple
+import logging
 
 import pika
 from pika.adapters.blocking_connection import BlockingChannel
@@ -12,10 +13,13 @@ from pika.exceptions import (
     ConnectionClosed,
     ProbableAccessDeniedError,
     ProbableAuthenticationError,
+    StreamLostError
 )
 
 from .config import CURRENT_CONFIG
 from .exceptions import NotAuthenticatedError
+
+LOGGER = logging.getLogger(__name__)
 
 
 class ServerConnection(threading.Thread):
@@ -41,7 +45,11 @@ class ServerConnection(threading.Thread):
                 password or CURRENT_CONFIG.get("DEFAULT_PASS"),
             ),
         )
-
+        LOGGER.info(
+            f"Setting up connection to '{host}' with username \
+'{self._con_params.credentials.username}' on port \
+'{self._con_params.port}' and vhost '{self._con_params.virtual_host}'"
+        )
         self._running = False
         self.connect()
         self.start()
@@ -64,7 +72,7 @@ class ServerConnection(threading.Thread):
 
     @property
     def connected(self) -> bool:
-        return self._connection.is_open
+        return self.is_running and not self._connection.is_closed
 
     @contextmanager
     def prepare_connection(self):
@@ -78,7 +86,10 @@ class ServerConnection(threading.Thread):
         while self._running:
             try:
                 self._connection.process_data_events(time_limit=1)
-            except AMQPConnectionError:
+            except (StreamLostError, AMQPConnectionError, ConnectionError) as e:
+                LOGGER.error(
+                    f"Error in connection to {self.server}: {e}, closing connection"
+                )
                 self.close()
 
     def connect(self) -> None:
@@ -87,21 +98,28 @@ class ServerConnection(threading.Thread):
         try:
             self._connection = pika.BlockingConnection(parameters=self._con_params)
             self._channel_setup()
-        except (socket.gaierror, socket.herror):
+        except (socket.gaierror, socket.herror) as e:
+            LOGGER.error(f"Socket error connecting to {self.server}: {e}")
             raise ConnectionError("Could not connect to server")
         except (
             AuthenticationError,
             ProbableAccessDeniedError,
             ProbableAuthenticationError,
         ):
-            raise NotAuthenticatedError("Not authenticated to connect to server")
+            LOGGER.error(
+                f"Not authenticated to connect to {self.server} with username {self._con_params.credentials.username}"
+            )
+            raise NotAuthenticatedError(
+                f"Not authenticated to connect to server {self.server}"
+            )
 
     def _close(self) -> None:
-        self._connection.process_data_events(time_limit=1)
+        self._connection.process_data_events()
         if self._connection.is_open:
             self._connection.close()
 
     def close(self) -> None:
+        LOGGER.debug(f"Closing connection to {self.server}")
         self._running = False
         if self._connection is None or self._connection.is_closed:
             return
@@ -165,7 +183,10 @@ class ReconnectConnection(ServerConnection):
         while self._running:
             try:
                 self._connection.process_data_events(time_limit=1)
-            except (AMQPConnectionError, ConnectionError, ConnectionClosed):
+            except (AMQPConnectionError, ConnectionError, ConnectionClosed) as e:
+                LOGGER.warning(
+                    f"Error in connection to {self.server}: '{e}', reconnecting..."
+                )
                 self.__reconnect()
 
     def __reconnect(self) -> None:
@@ -175,6 +196,10 @@ class ReconnectConnection(ServerConnection):
             if tries == 0:
                 self._reconnecting.set()
                 self.close()
+                LOGGER.critical(
+                    f"Could not reconnect to {self.server} after \
+                    {CURRENT_CONFIG.get('RECONNECT_TRIES')} attempt(s), exiting..."
+                )
                 raise RuntimeWarning(
                     f"Could not reconnect to {self.server} after \
                     {CURRENT_CONFIG.get('RECONNECT_TRIES')} attempt(s), exiting..."
@@ -186,10 +211,14 @@ class ReconnectConnection(ServerConnection):
             except AMQPConnectionError:
                 pass
             if self._running:
+                LOGGER.debug(
+                    f"Waiting {CURRENT_CONFIG.get('RECONNECT_DELAY')} seconds before next reconnect attempt"
+                )
                 time.sleep(CURRENT_CONFIG.get("RECONNECT_DELAY"))
             if tries < 0:
                 continue
             tries -= 1
+            LOGGER.debug(f"{tries} more reconnect attempts")
         self._reconnecting.set()
         self.__process_blocked_callbacks()
 
@@ -229,6 +258,7 @@ class ConnectionPool:
         try:
             con_index = self._connections.index(server)
         except ValueError:
+            LOGGER.debug(f"{server} not in current connection pool")
             return
         connection = self._connections.pop(con_index)
         connection.close()

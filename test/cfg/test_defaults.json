@@ -1,3 +1,4 @@
 {
-    "DEFAULT_USER":"test"
+    "DEFAULT_USER":"test",
+    "KEY_DNE":"KEY_DNE"
 }

@@ -1,4 +1,11 @@
+# EasyMQ Testing
 auth.txt
+
+# EasyMQ User logs
+log/
+EasyMQ.log
+
+# Visual Studio Code setup
 .vscode/
 
 # Local History for Visual Studio Code

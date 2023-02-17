@@ -1,2 +1,3 @@
-__author__ = 'mdrexler@wisc.edu'
+__author__ = 'Max Drexler'
+__email__ = "mndrexler@wisc.edu"
 __version__ = '0.5.0'

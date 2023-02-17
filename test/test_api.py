@@ -44,3 +44,9 @@ def test_publish_all(create_listener):
     easymq.publish_all(msgs, exchange='amq.fanout', block=True)
     for msg in msgs:
         assert json.loads(create_listener.get_message(block=True)) == msg
+
+
+def test_publish_non_exchange():
+    with pytest.raises(Exception):
+        easymq.publish('Test', exchange='not_existent_exchange', block=True)
+    easymq.publish('test', exchange='not_existent_exchange')

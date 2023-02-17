@@ -4,7 +4,9 @@ import os
 import warnings
 from typing import Dict, Callable, Union, Any
 from platformdirs import PlatformDirs
+import logging
 
+LOGGER = logging.getLogger(__name__)
 
 config_values = Union[str, int, float]
 config_file_name = "cfg_vars.json"
@@ -53,24 +55,24 @@ class Variable:
         return (self.name, self.current_value) == __obj
 
     def __str__(self) -> str:
-        return f"{self.name}"
+        return f"Config variable: {self.name}"
 
 
 class Configuration:
 
     DEFAULT_VARIABLES = [
-        Variable("RECONNECT_DELAY", 5.0, verify_pos_float),
-        Variable("RECONNECT_TRIES", 3, int),
-        Variable("DEFAULT_SERVER", "localhost", str),
-        Variable("DEFAULT_EXCHANGE", "", str),
-        Variable("DEFAULT_USER", "guest", str),
-        Variable("DEFAULT_PASS", "guest", str),
-        Variable("DEFAULT_ROUTE_KEY", "", str),
-        Variable("RABBITMQ_PORT", 5672, verify_pos_int),
+        ("RECONNECT_DELAY", 5.0, verify_pos_float),
+        ("RECONNECT_TRIES", 3, int),
+        ("DEFAULT_SERVER", "localhost", str),
+        ("DEFAULT_EXCHANGE", "", str),
+        ("DEFAULT_USER", "guest", str),
+        ("DEFAULT_PASS", "guest", str),
+        ("DEFAULT_ROUTE_KEY", "", str),
+        ("RABBITMQ_PORT", 5672, verify_pos_int),
     ]
 
     def __init__(self, _config_file_path=None) -> None:
-        self._variables = {v.name: v for v in Configuration.DEFAULT_VARIABLES}
+        self._variables = {v.name: v for v in [Variable(*args) for args in Configuration.DEFAULT_VARIABLES]}
         self._config_file_path = _config_file_path or config_file_path
 
     @property
@@ -95,8 +97,13 @@ class Configuration:
         try:
             with open(file_path, "r", encoding="utf-8") as cfg_file:
                 new_cfg_file: Dict = json.load(cfg_file)
-        except (json.decoder.JSONDecodeError, IOError) as e:
+        except json.decoder.JSONDecodeError:
+            LOGGER.warning(f"Bad JSON in config file {file_path}")
+            warnings.warn(f"Couldn't load config from '{file_path}' bad JSON!")
+            return new_configuration
+        except IOError as e:
             if file_path != config_file_path:
+                LOGGER.warning(f"IOError loading file {file_path}. {e.strerror}")
                 warnings.warn(
                     f"Couldn't load config from '{file_path}' because of {e} using default values"
                 )
@@ -106,6 +113,7 @@ class Configuration:
             try:
                 new_configuration.set(k, v)
             except (AttributeError, ValueError) as e:
+                LOGGER.warning(f"Error with variable {k}: {e}")
                 warnings.warn(f"Couldn't set variable '{k}' because '{e}'")
         return new_configuration
 

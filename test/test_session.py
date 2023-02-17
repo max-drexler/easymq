@@ -2,7 +2,7 @@ import pytest
 
 import easymq
 from easymq.exceptions import NotConnectedError
-from easymq.session import get_current_session
+from easymq.session import get_current_session, AmqpSession, exit_handler
 
 
 def test_auto_connect():
@@ -16,3 +16,23 @@ def test_cannot_connect_default():
     with pytest.raises(NotConnectedError):
         easymq.publish('hello')
     easymq.configure('DEFAULT_USER', None)
+
+
+def test_disconnect_args():
+    easymq.connect("localhost")
+    assert len(get_current_session().pool.connections) == 1
+    easymq.disconnect('localhost')
+    assert len(get_current_session().pool.connections) == 0
+
+
+def test_deletion():
+    new_session = AmqpSession()
+    new_session.connect('localhost')
+    del new_session
+
+
+def test_auto_disconnect():
+    easymq.connect('localhost')
+    assert len(get_current_session().servers) == 1
+    exit_handler()
+    assert len(get_current_session().servers) == 0
