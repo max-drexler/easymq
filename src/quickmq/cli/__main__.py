@@ -3,15 +3,15 @@ import sys
 from typing import List, Optional
 import warnings
 
-from easymq.config import configure, CURRENT_CONFIG
-from easymq import __version__
+from quickmq.config import configure, CURRENT_CONFIG
+from quickmq import __version__
 from ..session import get_current_session
 
-vInfoStr = f"EasyMQ {__version__}"
+vInfoStr = f"QuickMQ {__version__}"
 
 
 def list_cfg_vars(print_values: bool) -> None:
-    print("EasyMQ configuration variables:\n")
+    print("QuickMQ configuration variables:\n")
     for cfg_var in CURRENT_CONFIG:
         print(cfg_var, end="")
         if print_values:
@@ -22,10 +22,10 @@ def list_cfg_vars(print_values: bool) -> None:
 
 def main(argv: Optional[List[str]] = None):
     parser = argparse.ArgumentParser(
-        prog="easymq", description="Use EasyMQ from the command line"
+        prog="quickmq", description="Use QuickMQ from the command line"
     )
     parser.add_argument(
-        "--version", action="store_true", help="print the version of EasyMQ package"
+        "--version", action="store_true", help="print the version of Q package"
     )
     parser.add_argument(
         "-v", "--verbose", default=0, action="count", help="specify verbosity of script"
@@ -44,8 +44,8 @@ def main(argv: Optional[List[str]] = None):
     # )
     vConfig_parser = subparsers.add_parser(
         "set",
-        description="set EasyMQ configuration variables in the user configuration file",
-        help="sets a configuration variable. Note this variable is set permanently for all future runs of EasyMQ.",
+        description="set QuickMQ configuration variables in the user configuration file",
+        help="sets a configuration variable. Note this variable is set permanently for all future runs of QuickMQ.",
     )
     vLister_parser = subparsers.add_parser(
         "list",

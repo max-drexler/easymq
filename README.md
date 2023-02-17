@@ -1,4 +1,4 @@
-# EasyMQ
+# QuickMQ
 
 An easy-to-use RabbitMQ client.
 
@@ -21,27 +21,27 @@ An easy-to-use RabbitMQ client.
 
 ## Description
 
-EasyMQ is a purely python implementation of a RabbitMQ client. EasyMQ abstracts concepts like connection drops, authentication, and message encoding to make interacting with RabbitMQ as easy as possible.  
+QuickMQ is a purely python implementation of a RabbitMQ client. QuickMQ abstracts concepts like connection drops, authentication, and message encoding to make interacting with RabbitMQ as easy as possible.  
 
-### When is EasyMQ a Good Fit
+### When is QuickMQ a Good Fit
 * When you need to publish AMQP messages
 * When setup is not a priority
 * When multiple server connections are required
 
-### What EasyMQ ***Cannot*** Do
+### What QuickMQ ***Cannot*** Do
 
 * Work Queues
 * Transactions
 * Confirm that a consumer received a message
 
-EasyMQ is meant to be fairly simple in order to reduce the complexity for a user so these concepts are left out. Clients like [pika](https://github.com/pika/pika) or [aio-pika](https://github.com/mosquito/aio-pika) might be a better fit if you are looking for these features.
+QuickMQ is meant to be fairly simple in order to reduce the complexity for a user so these concepts are left out. Clients like [pika](https://github.com/pika/pika) or [aio-pika](https://github.com/mosquito/aio-pika) might be a better fit if you are looking for these features.
 
 ## Installation
 
-EasyMQ is currently still being tested, but it can be installed from the testPyPI index.
+QuickMQ is currently still being tested, but it can be installed from the PyPI index.
 
 ```
-pip install -i https://test.pypi.org/simple/ EasyMQ==0.5.0
+pip install quickmq
 ```
 
 ### Requirements
@@ -50,22 +50,22 @@ Python >= 3.7
 
 ## Usage
 
-EasyMQ uses 'configuration variables' to make interacting with RabbitMQ trivial. For example, publishing to your default server and exchange with default credentials can be done in two lines of code.
+QuickMQ uses 'configuration variables' to make interacting with RabbitMQ trivial. For example, publishing to your default server and exchange with default credentials can be done in two lines of code.
 
 ```
-import easymq
+import quickmq as mq
 
-easymq.publish('Hello World!')
+mq.publish('Hello World!')
 ```
 
 Configuration variables are not required. The previous code can be generalized to connect to any server(s) with any credentials as follows.
 
 ```
-import easymq
+import quickmq as mq
 
-easymq.connect('server1', 'server2', auth=('username', 'password'))
+mq.connect('server1', 'server2', auth=('username', 'password'))
 
-easymq.publish('Hello World!', exchange='amq.topic', key='intro.test')
+mq.publish('Hello World!', exchange='amq.topic', key='intro.test')
 ```
 
 This will publish 'Hello World!' to the 'amq.topic' exchange on both server1 and server2.
@@ -76,7 +76,7 @@ The following is a list of all configuration varaibles, what they do, their defa
 
 | Variable Name    | Acceptable Values | Default Value | What it does |
 |:----------------:|:-----------------:|:------------:|:------------:|
-| RECONNECT_TRIES  | int  | 5   | How many times easymq will try to reconnect to a server, negative for infinite.
+| RECONNECT_TRIES  | int  | 5   | How many times quickmq will try to reconnect to a server, negative for infinite.
 | RECONNECT_DELAY  | float >= 0  | 5.0 | Delay between reconnect attempts.
 | DEFAULT_SERVER   |     str     | "localhost" |Default server to connect to.
 | DEFAULT_EXCHANGE |     str     | ""  | Default exchange to publish to.
@@ -88,13 +88,13 @@ The following is a list of all configuration varaibles, what they do, their defa
 To change a configuration variable use the following command:
 
 ```
-easymq.configure('default_server', 'new_server', durable=True)
+quickmq.configure('default_server', 'new_server', durable=True)
 ```
 
-This will permenently change the default server that EasyMQ will connect to. Set durable to false (the default) to make the change for the current runtime only. Using None as the second argument will reset the configuration variable back to its default value. 
+This will permenently change the default server that QuickMQ will connect to. Set durable to false (the default) to make the change for the current runtime only. Using None as the second argument will reset the configuration variable back to its default value. 
 
 ```
-easymq.configure('default_server', None, durable=True)
+quickmq.configure('default_server', None, durable=True)
 ```
 
 ## Contributing

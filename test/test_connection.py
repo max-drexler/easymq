@@ -4,11 +4,10 @@ import threading
 
 import pytest
 
-import easymq
-from easymq.connection import (ConnectionPool, ReconnectConnection,
-                               ServerConnection)
-from easymq.exceptions import NotAuthenticatedError
-from easymq.session import get_current_session
+import quickmq
+from quickmq.connection import ConnectionPool, ReconnectConnection, ServerConnection
+from quickmq.exceptions import NotAuthenticatedError
+from quickmq.session import get_current_session
 
 
 @pytest.fixture
@@ -16,6 +15,7 @@ def disconnect_rabbitmq():
     def disconnect():
         stop_proc = subprocess.Popen(["make", "stop_rabbitmq"])
         stop_proc.wait()
+
     return disconnect
 
 
@@ -24,45 +24,46 @@ def restart_rabbitmq():
     def reconnect():
         start_proc = subprocess.Popen(["make", "start_rabbitmq"])
         start_proc.wait()
+
     return reconnect
 
 
 def test_connection_creation():
-    new_connect = ReconnectConnection('localhost')
-    assert new_connect.vhost == '/'
-    assert new_connect.port == easymq.configure('rabbitmq_port')
+    new_connect = ReconnectConnection("localhost")
+    assert new_connect.vhost == "/"
+    assert new_connect.port == quickmq.configure("rabbitmq_port")
     new_connect.close()
 
 
 def test_incorrect_credentials():
     with pytest.raises(NotAuthenticatedError):
-        easymq.connect("localhost", auth=("wrong_user", "wrong_password"))
+        quickmq.connect("localhost", auth=("wrong_user", "wrong_password"))
 
 
 def test_wrong_server():
     with pytest.raises(ConnectionError):
-        easymq.connect("not_host")
+        quickmq.connect("not_host")
 
 
 def test_reconnect(disconnect_rabbitmq, restart_rabbitmq):
-    easymq.connect("localhost")
+    quickmq.connect("localhost")
     assert len(get_current_session().pool.connections) == 1
     disconnect_rabbitmq()
     restart_rabbitmq()
     assert len(get_current_session().pool.connections) == 1
-    easymq.disconnect()
+    quickmq.disconnect()
 
 
 @pytest.mark.parametrize("exchange", ["amq.fanout"])
 def pub_after_disconnect(create_listener, disconnect_rabbitmq, restart_rabbitmq):
     msg = "Hello World!"
-    easymq.connect("localhost")
+    quickmq.connect("localhost")
     disconnect_rabbitmq()
-    easymq.publish(msg, exchange="amq.fanout")
+    quickmq.publish(msg, exchange="amq.fanout")
     restart_rabbitmq()
     rcvd_bytes = create_listener.get_message(block=True)
     assert json.loads(rcvd_bytes) == msg
-    easymq.disconnect()
+    quickmq.disconnect()
 
 
 def test_connection_pool():
@@ -72,7 +73,7 @@ def test_connection_pool():
         event.set()
 
     pool = ConnectionPool()
-    pool.add_connection(ReconnectConnection('localhost'))
+    pool.add_connection(ReconnectConnection("localhost"))
     assert len(pool) == 1
     pool.add_callback(callbck)
     event.wait(2.0)
@@ -81,7 +82,7 @@ def test_connection_pool():
 
 
 def test_close_on_error(disconnect_rabbitmq, restart_rabbitmq, capsys):
-    con = ServerConnection('localhost')
+    con = ServerConnection("localhost")
     con.connect()  # this is automatically called, just for testing purposes
     assert con.connected
     try:

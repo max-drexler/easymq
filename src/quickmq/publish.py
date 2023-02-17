@@ -3,7 +3,7 @@ import threading
 from typing import Generator, Optional
 import logging
 
-from easymq.connection import ConnectionPool, ServerConnection
+from quickmq.connection import ConnectionPool, ServerConnection
 
 from .message import Packet
 

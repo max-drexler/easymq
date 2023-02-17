@@ -3,8 +3,8 @@ import json
 
 import pytest
 
-import easymq
-from easymq.config import Configuration, Variable, CURRENT_CONFIG
+import quickmq
+from quickmq.config import Configuration, Variable, CURRENT_CONFIG
 
 
 def test_load_custom_cfg():
@@ -46,20 +46,20 @@ def test_missing_config():
 
 
 def test_set_get_value():
-    easymq.configure("default_exchange", "amq.fanout")
-    assert easymq.configure("default_exchange") == "amq.fanout"
-    easymq.configure("default_exchange", None)
-    assert easymq.configure("default_exchange") == ""
+    quickmq.configure("default_exchange", "amq.fanout")
+    assert quickmq.configure("default_exchange") == "amq.fanout"
+    quickmq.configure("default_exchange", None)
+    assert quickmq.configure("default_exchange") == ""
 
 
 def test_write_value():
-    easymq.configure("default_exchange", "amq.fanout", durable=True)
-    with open(easymq.config.config_file_path, encoding="utf-8") as cfg_file:
+    quickmq.configure("default_exchange", "amq.fanout", durable=True)
+    with open(quickmq.config.config_file_path, encoding="utf-8") as cfg_file:
         cfg = json.load(cfg_file)
     assert cfg["DEFAULT_EXCHANGE"] == "amq.fanout"
-    easymq.configure("default_exchange", None, durable=True)
+    quickmq.configure("default_exchange", None, durable=True)
 
 
 def test_get_invalid_variable():
     with pytest.raises(AttributeError):
-        easymq.configure("fake_variable")
+        quickmq.configure("fake_variable")
