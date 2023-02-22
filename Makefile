@@ -1,4 +1,4 @@
-.PHONY: stop_rabbitmq start_rabbitmq tox pytest quick_test test docker-pull clean
+.PHONY: stop_rabbitmq start_rabbitmq tox pytest quick_test test docker-pull clean upload
 
 RABBIT_MQ_CONTAINER_NAME:=rabbitmq
 RABBIT_MQ_IMAGE:=rabbitmq:3-management
@@ -43,3 +43,7 @@ stop_rabbitmq:
 		echo "Container $(RABBIT_MQ_CONTAINER_NAME) exists, stopping";\
 		docker kill $(RABBIT_MQ_CONTAINER_NAME);\
 	fi
+
+upload:
+	python3 -m build
+	python3 -m twine upload --skip-existing -u mdrexler dist/*

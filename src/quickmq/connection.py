@@ -78,6 +78,7 @@ class ServerConnection(threading.Thread):
     def prepare_connection(self):
         if not self.is_running:
             raise ConnectionAbortedError("Lost connection to RabbitMQ Server")
+        LOGGER.info(f'Connection to {self.server} prepared')
         yield
         self._reconnect_channel()
 
@@ -234,7 +235,9 @@ class ReconnectConnection(ServerConnection):
             super().add_callback(callback, *args, **kwargs)
 
     def wait_for_reconnect(self, timeout=None) -> bool:
+        LOGGER.info(f'Waiting for reconnect to {self.server}')
         self._reconnecting.wait(timeout=timeout)
+        LOGGER.info(f'Finished waiting for reconnect to {self.server}')
         return self.is_reconnecting
 
     def _reconnect_channel(self) -> None:

@@ -20,7 +20,9 @@ class AmqpPublisher:
         self._publishing_err: Optional[Exception] = None
 
     @contextmanager
-    def sync_connection(self, to_raise: Optional[Exception] = None) -> Generator[None, None, None]:
+    def sync_connection(
+        self, to_raise: Optional[Exception] = None
+    ) -> Generator[None, None, None]:
         self._publishing.clear()
         yield
         LOGGER.debug("Waiting for connection thread to finish publishing")
@@ -33,13 +35,18 @@ class AmqpPublisher:
         raise err
 
     def __publish(self, connection: ServerConnection, packet: Packet) -> None:
-        pub_channel = connection._confirmed_channel if packet.confirm else connection._channel
+        pub_channel = (
+            connection._confirmed_channel if packet.confirm else connection._channel
+        )
         with connection.prepare_connection():
+            LOGGER.info(
+                f"Connection prepared, attempting to publish to {packet.exchange} exchange on {connection.server}"
+            )
             try:
                 pub_channel.basic_publish(
                     packet.exchange,
                     routing_key=packet.routing_key,
-                    body=bytes(packet.message.encode(), 'utf-8'),
+                    body=bytes(packet.message.encode(), "utf-8"),
                     properties=packet.properties,
                 )
             except Exception as e:
@@ -54,6 +61,8 @@ class AmqpPublisher:
             with self.sync_connection():
                 connection.add_callback(self.__publish, connection, pckt)
 
-    def publish_to_pool(self, pool: ConnectionPool, pckt: Packet, confirm_delivery=False) -> None:
+    def publish_to_pool(
+        self, pool: ConnectionPool, pckt: Packet, confirm_delivery=False
+    ) -> None:
         for con in pool:
             self.publish_to_connection(con, pckt)
