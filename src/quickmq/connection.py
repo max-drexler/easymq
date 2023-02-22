@@ -87,7 +87,7 @@ class ServerConnection(threading.Thread):
         self._running = True
         while self._running:
             try:
-                self._connection.process_data_events(time_limit=2)
+                self._connection.process_data_events(time_limit=1)
             except (StreamLostError, AMQPConnectionError, ConnectionError) as e:
                 LOGGER.error(
                     f"Error in connection to {self.server}: {e}, closing connection"
@@ -188,6 +188,7 @@ class ReconnectConnection(ServerConnection):
         while self._running:
             try:
                 self._connection.process_data_events(time_limit=1)
+                LOGGER.debug(f'Processed data events on connection {self.server}')
             except (AMQPConnectionError, ConnectionError, ConnectionClosed) as e:
                 LOGGER.warning(
                     f"Error in connection to {self.server}: '{e}', reconnecting..."
@@ -234,6 +235,7 @@ class ReconnectConnection(ServerConnection):
 
     def add_callback(self, callback: Callable, *args, **kwargs) -> None:
         if self.is_reconnecting:
+            LOGGER.info(f'Adding callback to stack, currently reconnecting to {self.server}')
             self._reconnecting_callbacks.insert(0, (callback, args, kwargs))
         else:
             super().add_callback(callback, *args, **kwargs)

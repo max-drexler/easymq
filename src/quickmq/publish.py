@@ -34,32 +34,33 @@ class AmqpPublisher:
         self._publishing_err = None
         raise err
 
-    def __publish(self, connection: ServerConnection, packet: Packet) -> None:
-        pub_channel = (
-            connection._confirmed_channel if packet.confirm else connection._channel
-        )
-        with connection.prepare_connection():
-            LOGGER.info(
-                f"Connection prepared, attempting to publish to {packet.exchange} exchange on {connection.server}"
+    def _publish(self, connection: ServerConnection, packet: Packet) -> None:
+        try:
+            pub_channel = (
+                connection._confirmed_channel if packet.confirm else connection._channel
             )
-            try:
+            with connection.prepare_connection():
+                LOGGER.info(
+                    f"Connection prepared, attempting to publish to {packet.exchange} exchange on {connection.server}"
+                )
                 pub_channel.basic_publish(
                     packet.exchange,
                     routing_key=packet.routing_key,
                     body=bytes(packet.message.encode(), "utf-8"),
                     properties=packet.properties,
                 )
-            except Exception as e:
-                self._publishing_err = e
-        LOGGER.info(f"Published {packet} to {connection.server}")
-        self._publishing.set()
+                LOGGER.info(f"Published {packet} to {connection.server}")
+        except Exception as e:
+            self._publishing_err = e
+            LOGGER.warning(f"Couldn't publish to exchange {packet.exchange} on {connection.server} because {e}")
+        finally:
+            self._publishing.set()
 
     def publish_to_connection(self, connection: ServerConnection, pckt: Packet) -> None:
         if not pckt.confirm:
-            connection.add_callback(self.__publish, connection, pckt)
-        else:
-            with self.sync_connection():
-                connection.add_callback(self.__publish, connection, pckt)
+            return connection.add_callback(self._publish, connection, pckt)
+        with self.sync_connection():
+            connection.add_callback(self._publish, connection, pckt)
 
     def publish_to_pool(
         self, pool: ConnectionPool, pckt: Packet, confirm_delivery=False
