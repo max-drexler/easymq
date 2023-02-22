@@ -5,7 +5,7 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [tool.pytest.ini_options]
-addopts = "--cov=easymq --cov-report term --cov-report xml"
+addopts = "--cov=quickmq --cov-report term --cov-report xml"
 testpaths = [
     "tests",
 ]

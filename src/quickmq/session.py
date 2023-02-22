@@ -95,7 +95,7 @@ class AmqpSession:
             key = None
             msg = None
             if type(val) is tuple:
-                msg, key = val
+                key, msg = val
             else:
                 msg = val
             self.publish(msg, key, exchange=exchange, block=block)

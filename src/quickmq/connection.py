@@ -1,4 +1,5 @@
 from contextlib import contextmanager
+import functools
 import socket
 import threading
 import time
@@ -86,7 +87,7 @@ class ServerConnection(threading.Thread):
         self._running = True
         while self._running:
             try:
-                self._connection.process_data_events(time_limit=1)
+                self._connection.process_data_events(time_limit=2)
             except (StreamLostError, AMQPConnectionError, ConnectionError) as e:
                 LOGGER.error(
                     f"Error in connection to {self.server}: {e}, closing connection"
@@ -113,6 +114,7 @@ class ServerConnection(threading.Thread):
             raise NotAuthenticatedError(
                 f"Not authenticated to connect to server {self.server}"
             )
+        LOGGER.info(f'Connection established to {self.server}')
 
     def _close(self) -> None:
         self._connection.process_data_events()
@@ -134,7 +136,9 @@ class ServerConnection(threading.Thread):
             self._confirmed_channel.confirm_delivery()
 
     def add_callback(self, callback: Callable, *args, **kwargs) -> None:
-        self._connection.add_callback_threadsafe(lambda: callback(*args, **kwargs))
+        LOGGER.info(f'Adding callback on {self.server}: {callback}, args: {args}, kwargs: {kwargs}')
+        cb = functools.partial(callback, *args, **kwargs)
+        self._connection.add_callback_threadsafe(cb)
 
     def _reconnect_channel(self) -> None:
         self._channel_setup()
