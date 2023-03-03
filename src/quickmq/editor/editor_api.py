@@ -5,7 +5,7 @@ from enum import Enum, auto
 
 from pika.exceptions import ChannelClosedByBroker
 
-from ..session import get_current_session, connection_required
+from ..session import get_current_session, default_connection_required
 
 
 class ExchangeTypes(Enum):
@@ -36,7 +36,7 @@ def __declare_exchange(*args, **kwargs) -> None:
     print(kwargs)
 
 
-@connection_required
+@default_connection_required
 def exchange_declare(*args, **kwargs):
     get_current_session().pool.add_callback(__declare_exchange, *args, **kwargs)
 

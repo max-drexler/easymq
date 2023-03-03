@@ -3,7 +3,7 @@ import logging
 from .__version__ import __author__, __version__
 from .api import connect, consume, disconnect, get, publish, publish_all
 from .config import configure
-from .session import AmqpSession, _CURRENT_SESSION
+from .session import AmqpSession
 
 __all__ = [
     "publish",
