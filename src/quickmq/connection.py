@@ -20,7 +20,7 @@ from pika.exceptions import (
 from .config import CURRENT_CONFIG
 from .exceptions import NotAuthenticatedError
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = logging.getLogger('quickmq')
 
 
 class ServerConnection(threading.Thread):

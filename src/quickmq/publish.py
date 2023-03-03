@@ -10,7 +10,7 @@ from .message import Packet
 # Possible problem with lock when publishing to multiple servers
 # When one server is reconnecting, publishing will pause for all connections!
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = logging.getLogger('quickmq')
 
 
 class AmqpPublisher:

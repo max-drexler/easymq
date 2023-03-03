@@ -6,7 +6,7 @@ from typing import Dict, Callable, Union, Any
 from platformdirs import PlatformDirs
 import logging
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = logging.getLogger('quickmq')
 
 config_values = Union[str, int, float]
 config_file_name = "cfg_vars.json"
