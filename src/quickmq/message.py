@@ -26,7 +26,7 @@ class Message:
         return json.loads(self._message)
 
     def __str__(self) -> str:
-        return f'Message: {self._message}'
+        return f"Message: {self._message}"
 
 
 @dataclass

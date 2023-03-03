@@ -14,7 +14,7 @@ from pika.exceptions import (
     ConnectionClosed,
     ProbableAccessDeniedError,
     ProbableAuthenticationError,
-    StreamLostError
+    StreamLostError,
 )
 
 from .config import CURRENT_CONFIG
@@ -32,7 +32,9 @@ class ServerConnection(threading.Thread):
         username: Optional[str] = None,
         password: Optional[str] = None,
     ) -> None:
-        super().__init__(None, None, f"Thread-MQConnection({host})", (), {}, daemon=True)
+        super().__init__(
+            None, None, f"Thread-MQConnection({host})", (), {}, daemon=True
+        )
 
         self._callback_queue = queue.Queue()
         self._connection: pika.BlockingConnection = None
@@ -80,7 +82,7 @@ class ServerConnection(threading.Thread):
     def prepare_connection(self):
         if not self.is_running:
             raise ConnectionAbortedError("Lost connection to RabbitMQ Server")
-        LOGGER.info(f'Connection to {self.server} prepared')
+        LOGGER.info(f"Connection to {self.server} prepared")
         yield
         self._channel_setup()
 
@@ -89,7 +91,12 @@ class ServerConnection(threading.Thread):
         while self._running:
             try:
                 self._connection.process_data_events(time_limit=1)
-            except (StreamLostError, AMQPConnectionError, ConnectionError, ConnectionClosed) as e:
+            except (
+                StreamLostError,
+                AMQPConnectionError,
+                ConnectionError,
+                ConnectionClosed,
+            ) as e:
                 self._on_connection_error(e)
             try:
                 callback, args, kwargs = self._callback_queue.get_nowait()
@@ -97,7 +104,7 @@ class ServerConnection(threading.Thread):
             except queue.Empty:
                 continue
             except TypeError as e:
-                LOGGER.warning(f'Callback has wrong method signature: {e}')
+                LOGGER.warning(f"Callback has wrong method signature: {e}")
 
     def _on_connection_error(self, exception: BaseException) -> None:
         LOGGER.error(
@@ -125,7 +132,7 @@ class ServerConnection(threading.Thread):
             raise NotAuthenticatedError(
                 f"Not authenticated to connect to server {self.server}"
             )
-        LOGGER.info(f'Connection established to {self.server}')
+        LOGGER.info(f"Connection established to {self.server}")
 
     def _close(self) -> None:
         self._connection.process_data_events()
@@ -147,7 +154,9 @@ class ServerConnection(threading.Thread):
             self._confirmed_channel.confirm_delivery()
 
     def add_callback(self, callback: Callable, *args, **kwargs) -> None:
-        LOGGER.info(f'Adding callback on {self.server}: {callback}, args: {args}, kwargs: {kwargs}')
+        LOGGER.info(
+            f"Adding callback on {self.server}: {callback}, args: {args}, kwargs: {kwargs}"
+        )
         self._callback_queue.put((callback, args, kwargs))
 
     def __del__(self) -> None:
@@ -225,9 +234,9 @@ class ReconnectConnection(ServerConnection):
         self._reconnecting.set()
 
     def wait_for_reconnect(self, timeout=None) -> bool:
-        LOGGER.info(f'Waiting for reconnect to {self.server}')
+        LOGGER.info(f"Waiting for reconnect to {self.server}")
         self._reconnecting.wait(timeout=timeout)
-        LOGGER.info(f'Finished waiting for reconnect to {self.server}')
+        LOGGER.info(f"Finished waiting for reconnect to {self.server}")
         return self.is_reconnecting
 
     def prepare_connection(self):

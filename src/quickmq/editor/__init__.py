@@ -1,6 +1,4 @@
-from .editor_api import (
-    exchange_declare
-)
+from .editor_api import exchange_declare
 from ..api import disconnect
 
 __all__ = [

@@ -16,11 +16,14 @@ class ExchangeTypes(Enum):
 
 
 _editing = threading.Event()
-_editing.set() # Not currently editing, don't want threads to block
+_editing.set()  # Not currently editing, don't want threads to block
 _editing_error = None
 
+
 @contextmanager
-def sync_connection(to_raise: Optional[Exception] = None) -> Generator[None, None, None]:
+def sync_connection(
+    to_raise: Optional[Exception] = None,
+) -> Generator[None, None, None]:
     _editing.clear()
     yield
     _editing.wait()
@@ -44,6 +47,7 @@ def exchange_declare(*args, **kwargs):
 class TopologyEditor:
     def __init__(self) -> None:
         pass
+
     def check_exchange(self, new_exchange: str) -> bool:
         self._server_conn.wait_for_reconnect()
         self._server_conn.add_callback(

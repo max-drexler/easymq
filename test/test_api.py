@@ -57,7 +57,8 @@ def test_publish_non_exchange():
 def test_mulithreading(create_listener):
     msg = "Hello World!"
     quickmq.connect('localhost')
-    t = threading.Thread(target=quickmq.publish, args=(msg,), kwargs={'exchange': 'amq.fanout', 'confirm_delivery': True})
+    t = threading.Thread(target=quickmq.publish, args=(msg,),
+                         kwargs={'exchange': 'amq.fanout', 'confirm_delivery': True})
     t.start()
     t.join()
     rcvd_bytes = create_listener.get_message(block=True)

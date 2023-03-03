@@ -52,7 +52,9 @@ class AmqpPublisher:
                 LOGGER.info(f"Published {packet} to {connection.server}")
         except Exception as e:
             self._publishing_err = e
-            LOGGER.warning(f"Couldn't publish to exchange {packet.exchange} on {connection.server} because {e}")
+            LOGGER.warning(
+                f"Couldn't publish to exchange {packet.exchange} on {connection.server} because {e}"
+            )
         finally:
             self._publishing.set()
 
@@ -62,8 +64,6 @@ class AmqpPublisher:
         with self.sync_connection():
             connection.add_callback(self._publish, connection, pckt)
 
-    def publish_to_pool(
-        self, pool: ConnectionPool, pckt: Packet
-    ) -> None:
+    def publish_to_pool(self, pool: ConnectionPool, pckt: Packet) -> None:
         for con in pool:
             self.publish_to_connection(con, pckt)
