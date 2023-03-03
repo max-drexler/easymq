@@ -5,6 +5,20 @@ from quickmq.exceptions import NotConnectedError
 from quickmq.session import get_current_session, AmqpSession, exit_handler
 
 
+def test_context_manager():
+    with AmqpSession() as _:
+        pass
+
+
+def test_connect_context_manager():
+    with AmqpSession() as session:
+        session.connect('localhost')
+        assert len(session.pool.connections) == 1
+        connection = session.pool.connections[0]
+        assert connection.connected
+    assert not connection.connected
+
+
 def test_auto_connect():
     quickmq.publish("hello")
     assert len(get_current_session().pool.connections) == 1

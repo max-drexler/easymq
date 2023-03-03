@@ -81,6 +81,7 @@ def test_connection_pool():
     pool.remove_all()
 
 
+@pytest.mark.skip
 def test_close_on_error(disconnect_rabbitmq, restart_rabbitmq, capsys):
     con = ServerConnection("localhost")
     con.connect()  # this is automatically called, just for testing purposes

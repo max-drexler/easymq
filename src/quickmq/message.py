@@ -22,8 +22,8 @@ class Message:
     def encode(self) -> str:
         return json.dumps(self._message)
 
-    def decode() -> Any:
-        pass
+    def decode(self) -> Any:
+        return json.loads(self._message)
 
     def __str__(self) -> str:
         return f'Message: {self._message}'

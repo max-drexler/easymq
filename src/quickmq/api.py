@@ -30,7 +30,7 @@ def publish(
 
 
 def publish_all(
-    messages: Iterable[Union[str, Tuple[str, str]]],
+    messages: Iterable[Union[str, Tuple[str, Any]]],
     exchange: Optional[str] = None,
     block=False,
 ) -> None:

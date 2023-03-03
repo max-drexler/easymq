@@ -1,3 +1,4 @@
+import threading
 import pytest
 import quickmq
 from quickmq.session import get_current_session
@@ -50,3 +51,14 @@ def test_publish_non_exchange():
     with pytest.raises(Exception):
         quickmq.publish('Test', exchange='not_existent_exchange', block=True)
     quickmq.publish('test', exchange='not_existent_exchange')
+
+
+@pytest.mark.parametrize('exchange', ['amq.fanout'])
+def test_mulithreading(create_listener):
+    msg = "Hello World!"
+    quickmq.connect('localhost')
+    t = threading.Thread(target=quickmq.publish, args=(msg,), kwargs={'exchange': 'amq.fanout', 'block': True})
+    t.start()
+    t.join()
+    rcvd_bytes = create_listener.get_message(block=True)
+    assert json.loads(rcvd_bytes) == msg

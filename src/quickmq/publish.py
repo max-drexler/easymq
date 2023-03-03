@@ -63,7 +63,7 @@ class AmqpPublisher:
             connection.add_callback(self._publish, connection, pckt)
 
     def publish_to_pool(
-        self, pool: ConnectionPool, pckt: Packet, confirm_delivery=False
+        self, pool: ConnectionPool, pckt: Packet
     ) -> None:
         for con in pool:
             self.publish_to_connection(con, pckt)

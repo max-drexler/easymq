@@ -32,7 +32,7 @@ class ServerConnection(threading.Thread):
         username: Optional[str] = None,
         password: Optional[str] = None,
     ) -> None:
-        super().__init__(None, None, f"Thread-MQConnection({host})", None, None)
+        super().__init__(None, None, f"Thread-MQConnection({host})", (), {}, daemon=True)
 
         self._connection: pika.BlockingConnection = None
         self._channel: BlockingChannel = None
