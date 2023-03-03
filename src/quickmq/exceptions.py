@@ -17,6 +17,7 @@ class NotConnectedError(ConnectionError):
 class EncodingError(Exception):
     """Error when encoding a message"""
 
+
 # Warnings
 
 

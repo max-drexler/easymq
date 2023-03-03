@@ -45,6 +45,16 @@ def test_wrong_server():
         quickmq.connect("not_host")
 
 
+def test_callback():
+    evnt = threading.Event()
+
+    def callback():
+        evnt.set()
+    connection = ServerConnection('localhost')
+    connection.add_callback(callback)
+    evnt.wait()
+
+
 def test_reconnect(disconnect_rabbitmq, restart_rabbitmq):
     quickmq.connect("localhost")
     assert len(_CURRENT_SESSION.pool.connections) == 1

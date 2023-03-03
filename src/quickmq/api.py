@@ -18,7 +18,9 @@ atexit.register(_CURRENT_SESSION.disconnect)
 
 
 # Server connection API
-def connect(*args, auth: Optional[Tuple[Optional[str], Optional[str]]] = (None, None)) -> None:
+def connect(
+    *args, auth: Optional[Tuple[Optional[str], Optional[str]]] = (None, None)
+) -> None:
     _CURRENT_SESSION.connect(*args, auth=auth or (None,) * 2)
 
 

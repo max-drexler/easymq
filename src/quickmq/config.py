@@ -72,7 +72,10 @@ class Configuration:
     ]
 
     def __init__(self, _config_file_path=None) -> None:
-        self._variables = {v.name: v for v in [Variable(*args) for args in Configuration.DEFAULT_VARIABLES]}
+        self._variables = {
+            v.name: v
+            for v in [Variable(*args) for args in Configuration.DEFAULT_VARIABLES]
+        }
         self._config_file_path = _config_file_path or config_file_path
 
     @property

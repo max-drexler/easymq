@@ -77,7 +77,7 @@ class AmqpSession:
                 key, msg = val
             else:
                 msg = val
-            self.publish(msg, key, exchange=exchange, block=confirm_delivery)
+            self.publish(msg, key, exchange=exchange, confirm_delivery=confirm_delivery)
 
     def disconnect(self, *args) -> None:
         if not args:
