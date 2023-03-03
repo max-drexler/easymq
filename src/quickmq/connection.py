@@ -1,5 +1,5 @@
 from contextlib import contextmanager
-import functools
+import queue
 import socket
 import threading
 import time
@@ -34,6 +34,7 @@ class ServerConnection(threading.Thread):
     ) -> None:
         super().__init__(None, None, f"Thread-MQConnection({host})", (), {}, daemon=True)
 
+        self._callback_queue = queue.Queue()
         self._connection: pika.BlockingConnection = None
         self._channel: BlockingChannel = None
         self._confirmed_channel: BlockingChannel = None
@@ -81,18 +82,28 @@ class ServerConnection(threading.Thread):
             raise ConnectionAbortedError("Lost connection to RabbitMQ Server")
         LOGGER.info(f'Connection to {self.server} prepared')
         yield
-        self._reconnect_channel()
+        self._channel_setup()
 
     def run(self) -> None:
         self._running = True
         while self._running:
             try:
                 self._connection.process_data_events(time_limit=1)
-            except (StreamLostError, AMQPConnectionError, ConnectionError) as e:
-                LOGGER.error(
-                    f"Error in connection to {self.server}: {e}, closing connection"
-                )
-                self.close()
+            except (StreamLostError, AMQPConnectionError, ConnectionError, ConnectionClosed) as e:
+                self._on_connection_error(e)
+            try:
+                callback, args, kwargs = self._callback_queue.get_nowait()
+                callback(*args, **kwargs)
+            except queue.Empty:
+                continue
+            except TypeError as e:
+                LOGGER.warning(f'Callback has wrong method signature: {e}')
+
+    def _on_connection_error(self, exception: BaseException) -> None:
+        LOGGER.error(
+            f"Error in connection to {self.server}: {exception}, closing connection"
+        )
+        self.close()
 
     def connect(self) -> None:
         if self._connection is not None and self._connection.is_open:
@@ -137,11 +148,7 @@ class ServerConnection(threading.Thread):
 
     def add_callback(self, callback: Callable, *args, **kwargs) -> None:
         LOGGER.info(f'Adding callback on {self.server}: {callback}, args: {args}, kwargs: {kwargs}')
-        cb = functools.partial(callback, *args, **kwargs)
-        self._connection.add_callback_threadsafe(cb)
-
-    def _reconnect_channel(self) -> None:
-        self._channel_setup()
+        self._callback_queue.put((callback, args, kwargs))
 
     def __del__(self) -> None:
         self.close()
@@ -170,7 +177,6 @@ class ReconnectConnection(ServerConnection):
     ) -> None:
         self._reconnecting = threading.Event()
         self._reconnecting.set()  # not currently reconnecting, threads shouldn't wait
-        self._reconnecting_callbacks: List[Tuple[Callable, Any, Any]] = []
 
         super().__init__(host, port, vhost, username, password)
 
@@ -183,17 +189,8 @@ class ReconnectConnection(ServerConnection):
         self.wait_for_reconnect()
         return super().close()
 
-    def run(self) -> None:
-        self._running = True
-        while self._running:
-            try:
-                self._connection.process_data_events(time_limit=1)
-                LOGGER.debug(f'Processed data events on connection {self.server}')
-            except (AMQPConnectionError, ConnectionError, ConnectionClosed) as e:
-                LOGGER.warning(
-                    f"Error in connection to {self.server}: '{e}', reconnecting..."
-                )
-                self.__reconnect()
+    def _on_connection_error(self, exception: BaseException) -> None:
+        self.__reconnect()
 
     def __reconnect(self) -> None:
         self._reconnecting.clear()
@@ -226,29 +223,12 @@ class ReconnectConnection(ServerConnection):
             tries -= 1
             LOGGER.debug(f"{tries} more reconnect attempts")
         self._reconnecting.set()
-        self.__process_blocked_callbacks()
-
-    def __process_blocked_callbacks(self) -> None:
-        while len(self._reconnecting_callbacks) > 0:
-            callback, args, kwargs = self._reconnecting_callbacks.pop()
-            _ = self._connection.call_later(0, lambda: callback(*args, **kwargs))
-
-    def add_callback(self, callback: Callable, *args, **kwargs) -> None:
-        if self.is_reconnecting:
-            LOGGER.info(f'Adding callback to stack, currently reconnecting to {self.server}')
-            self._reconnecting_callbacks.insert(0, (callback, args, kwargs))
-        else:
-            super().add_callback(callback, *args, **kwargs)
 
     def wait_for_reconnect(self, timeout=None) -> bool:
         LOGGER.info(f'Waiting for reconnect to {self.server}')
         self._reconnecting.wait(timeout=timeout)
         LOGGER.info(f'Finished waiting for reconnect to {self.server}')
         return self.is_reconnecting
-
-    def _reconnect_channel(self) -> None:
-        self.wait_for_reconnect()
-        self._channel_setup()
 
     def prepare_connection(self):
         self.wait_for_reconnect()
