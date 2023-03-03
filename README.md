@@ -50,25 +50,33 @@ Python >= 3.7
 
 ## Usage
 
-QuickMQ uses 'configuration variables' to make interacting with RabbitMQ trivial. For example, publishing to your default server and exchange with default credentials can be done in two lines of code.
-
-```
-import quickmq as mq
-
-mq.publish('Hello World!')
-```
-
-Configuration variables are not required. The previous code can be generalized to connect to any server(s) with any credentials as follows.
-
+Connecting to servers and publishing messsages is trivial with quickmq.
 ```
 import quickmq as mq
 
 mq.connect('server1', 'server2', auth=('username', 'password'))
 
 mq.publish('Hello World!', exchange='amq.topic', key='intro.test')
+
+mq.disconnect()
 ```
 
 This will publish 'Hello World!' to the 'amq.topic' exchange on both server1 and server2.
+
+*Note: this is not very efficient when publishing many (thousands) of messages per second. Use the following api for better efficiency.
+
+```
+from quickmq import AmqpSession
+
+session = AmqpSession()
+
+session.connect('server1', 'server2', auth=('username', 'password'))
+
+for i in range(200000):
+    session.publish(i)
+
+session.disconnect()
+```
 
 ### Changing Defaults
 

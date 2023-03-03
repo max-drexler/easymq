@@ -5,7 +5,6 @@ easymq.session
 This module contains objects and functions to maintain a long-term amqp session.
 """
 
-import atexit
 import logging
 from typing import Any, Callable, Iterable, List, Optional, Tuple, Union
 
@@ -16,43 +15,6 @@ from .message import Packet, Message
 from .config import CURRENT_CONFIG
 
 LOGGER = logging.getLogger(__name__)
-_CURRENT_SESSION = None
-
-
-def exit_handler():
-    if _CURRENT_SESSION is None:
-        return
-    _CURRENT_SESSION.disconnect()
-
-
-atexit.register(exit_handler)
-
-
-def get_current_session():
-    global _CURRENT_SESSION
-    if _CURRENT_SESSION is None:
-        _CURRENT_SESSION = AmqpSession()
-    return _CURRENT_SESSION
-
-
-def connection_required(func: Callable) -> Callable:
-    def check_conn(*args, **kwargs):
-        if len(get_current_session().servers) > 0:
-            func(*args, **kwargs)
-            return
-
-        try:
-            get_current_session().connect(CURRENT_CONFIG.get("DEFAULT_SERVER"))
-            func(*args, **kwargs)
-            return
-        except (NotAuthenticatedError, ConnectionError, AttributeError) as e:
-            LOGGER.critical(f"Error when connecting to default server: {e}")
-            raise NotConnectedError(
-                f"Need to be connected to a server,\
-could not connect to default '{CURRENT_CONFIG.get('DEFAULT_SERVER')}"
-            )
-
-    return check_conn
 
 
 class AmqpSession:
@@ -68,19 +30,36 @@ class AmqpSession:
     def pool(self) -> ConnectionPool:
         return self._connections
 
+    def connection_required(func: Callable) -> Callable:
+        def check_conn(self, *args, **kwargs):
+            if len(self.servers) > 0:
+                return func(self, *args, **kwargs)
+
+            try:
+                self.connect(CURRENT_CONFIG.get("DEFAULT_SERVER"))
+                return func(self, *args, **kwargs)
+            except (NotAuthenticatedError, ConnectionError, AttributeError) as e:
+                LOGGER.critical(f"Error when connecting to default server: {e}")
+                raise NotConnectedError(
+                    f"Need to be connected to a server,\
+    could not connect to default '{CURRENT_CONFIG.get('DEFAULT_SERVER')}"
+                )
+
+        return check_conn
+
     @connection_required
     def publish(
         self,
         message: Union[Message, Any],
         key: Optional[str] = None,
         exchange: Optional[str] = None,
-        block=False,
+        confirm_delivery=False,
     ):
         pckt = Packet(
             message if isinstance(message, Message) else Message(message),
             key or CURRENT_CONFIG.get("DEFAULT_ROUTE_KEY"),
             exchange or CURRENT_CONFIG.get("DEFAULT_EXCHANGE"),
-            confirm=block,
+            confirm=confirm_delivery,
         )
         self._publisher.publish_to_pool(self._connections, pckt)
 
@@ -89,7 +68,7 @@ class AmqpSession:
         self,
         messages: Iterable[Union[str, Tuple[str, Any]]],
         exchange: Optional[str] = None,
-        block=False,
+        confirm_delivery=False,
     ):
         for val in messages:
             key = None
@@ -98,7 +77,7 @@ class AmqpSession:
                 key, msg = val
             else:
                 msg = val
-            self.publish(msg, key, exchange=exchange, block=block)
+            self.publish(msg, key, exchange=exchange, block=confirm_delivery)
 
     def disconnect(self, *args) -> None:
         if not args:

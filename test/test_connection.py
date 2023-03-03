@@ -5,9 +5,9 @@ import threading
 import pytest
 
 import quickmq
+from quickmq.api import _CURRENT_SESSION
 from quickmq.connection import ConnectionPool, ReconnectConnection, ServerConnection
 from quickmq.exceptions import NotAuthenticatedError
-from quickmq.session import get_current_session
 
 
 @pytest.fixture
@@ -47,10 +47,10 @@ def test_wrong_server():
 
 def test_reconnect(disconnect_rabbitmq, restart_rabbitmq):
     quickmq.connect("localhost")
-    assert len(get_current_session().pool.connections) == 1
+    assert len(_CURRENT_SESSION.pool.connections) == 1
     disconnect_rabbitmq()
     restart_rabbitmq()
-    assert len(get_current_session().pool.connections) == 1
+    assert len(_CURRENT_SESSION.pool.connections) == 1
     quickmq.disconnect()
 
 

@@ -1,7 +1,7 @@
 import threading
 import pytest
 import quickmq
-from quickmq.session import get_current_session
+from quickmq.api import _CURRENT_SESSION
 import json
 
 
@@ -14,15 +14,15 @@ def start_easymq():
 
 def test_connection():
     quickmq.connect('localhost')
-    assert len(get_current_session().pool.connections) == 1
+    assert len(_CURRENT_SESSION.pool.connections) == 1
     quickmq.disconnect()
-    assert len(get_current_session().pool.connections) == 0
+    assert len(_CURRENT_SESSION.pool.connections) == 0
 
 
 @pytest.mark.parametrize('exchange', ['amq.fanout'])
 def test_publish(create_listener):
     msg = "Hello World!"
-    quickmq.publish(message=msg, exchange='amq.fanout', block=True)
+    quickmq.publish(message=msg, exchange='amq.fanout', confirm_delivery=True)
     rcvd_bytes = create_listener.get_message(block=True)
     assert json.loads(rcvd_bytes) == msg
 
@@ -42,14 +42,14 @@ def test_get():
 @pytest.mark.parametrize('exchange', ['amq.fanout'])
 def test_publish_all(create_listener):
     msgs = ["Hello", "World!"]
-    quickmq.publish_all(msgs, exchange='amq.fanout', block=True)
+    quickmq.publish_all(msgs, exchange='amq.fanout', confirm_delivery=True)
     for msg in msgs:
         assert json.loads(create_listener.get_message(block=True)) == msg
 
 
 def test_publish_non_exchange():
     with pytest.raises(Exception):
-        quickmq.publish('Test', exchange='not_existent_exchange', block=True)
+        quickmq.publish('Test', exchange='not_existent_exchange', confirm_delivery=True)
     quickmq.publish('test', exchange='not_existent_exchange')
 
 

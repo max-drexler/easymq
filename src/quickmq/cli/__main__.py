@@ -5,7 +5,7 @@ import warnings
 
 from quickmq.config import configure, CURRENT_CONFIG
 from quickmq import __version__
-from ..session import get_current_session
+from quickmq.session import AmqpSession
 
 vInfoStr = f"QuickMQ {__version__}"
 
@@ -101,13 +101,14 @@ def main(argv: Optional[List[str]] = None):
 
     sub_command = getattr(args, "cmd")
     if sub_command == "publish":
-        get_current_session().connect(
-            *getattr(args, "servers"),
-            auth=(getattr(args, "username"), getattr(args, "password")),
-        )
-        get_current_session().publish_all(
-            getattr(args, "messages"), exchange=getattr(args, "exchange")
-        )
+        with AmqpSession() as session:
+            session.connect(
+                *getattr(args, "servers"),
+                auth=(getattr(args, "username"), getattr(args, "password")),
+            )
+            session.publish_all(
+                getattr(args, "messages"), exchange=getattr(args, "exchange")
+            )
     elif sub_command == "consume":
         print("command line consumption is not yet implemented!")
     elif sub_command == "set":
