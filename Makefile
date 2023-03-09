@@ -47,3 +47,7 @@ stop_rabbitmq:
 upload:
 	python3 -m build
 	python3 -m twine upload --skip-existing -u mdrexler dist/*
+
+test-upload:
+	python3 -m build
+	python3 -m twine upload --skip-existing -u mdrexler --repository testpypi dist/*

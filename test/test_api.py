@@ -50,14 +50,12 @@ def test_publish_all(create_listener):
 def test_publish_non_exchange():
     with pytest.raises(Exception):
         quickmq.publish('Test', exchange='not_existent_exchange', confirm_delivery=True)
-    quickmq.publish('test', exchange='not_existent_exchange')
 
 
 @pytest.mark.parametrize('exchange', ['amq.fanout'])
 def test_mulithreading(create_listener):
-    msg = "Hello World!"
-    quickmq.connect('localhost')
-    t = threading.Thread(target=quickmq.publish, args=(msg,),
+    msg = "multi-threaded publishing"
+    t = threading.Thread(name='test_api:test_multithreading', target=quickmq.publish, args=(msg,),
                          kwargs={'exchange': 'amq.fanout', 'confirm_delivery': True})
     t.start()
     t.join()

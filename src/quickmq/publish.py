@@ -8,7 +8,6 @@ from quickmq.connection import ConnectionPool, ServerConnection
 from .message import Packet
 
 # Possible problem with lock when publishing to multiple servers
-# When one server is reconnecting, publishing will pause for all connections!
 
 LOGGER = logging.getLogger('quickmq')
 
@@ -35,13 +34,13 @@ class AmqpPublisher:
         raise err
 
     def _publish(self, connection: ServerConnection, packet: Packet) -> None:
+        pub_channel = (
+            connection._confirmed_channel if packet.confirm else connection._channel
+        )
         try:
-            pub_channel = (
-                connection._confirmed_channel if packet.confirm else connection._channel
-            )
-            with connection.prepare_connection():
+            with connection.wrapper():
                 LOGGER.info(
-                    f"Connection prepared, attempting to publish to {packet.exchange} exchange on {connection.server}"
+                    f"Connection to {connection.server} ready, attempting to publish to {packet.exchange} exchange"
                 )
                 pub_channel.basic_publish(
                     packet.exchange,

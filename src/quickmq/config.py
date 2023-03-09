@@ -1,8 +1,8 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import json
 import os
 import warnings
-from typing import Dict, Callable, Union, Any
+from typing import Dict, Callable, List, Tuple, Union, Any
 from platformdirs import PlatformDirs
 import logging
 
@@ -43,16 +43,16 @@ class Variable:
     name: str
     default_value: config_values
     verify_func: Callable
-    current_value: config_values = None
+    current_value: config_values = field(init=False)
 
     def __post_init__(self):
-        if self.current_value is None:
-            self.current_value = self.default_value
+        self.current_value = self.default_value
 
     def __eq__(self, __obj: Any) -> bool:
         if isinstance(__obj, str):
             return self.name == __obj
-        return (self.name, self.current_value) == __obj
+        rep = (self.name, self.current_value)
+        return rep.__eq__(__obj)
 
     def __str__(self) -> str:
         return f"Config variable: {self.name}"
@@ -60,7 +60,7 @@ class Variable:
 
 class Configuration:
 
-    DEFAULT_VARIABLES = [
+    DEFAULT_VARIABLES: List[Tuple[str, config_values, Callable]] = [
         ("RECONNECT_DELAY", 5.0, verify_pos_float),
         ("RECONNECT_TRIES", 3, int),
         ("DEFAULT_SERVER", "localhost", str),
@@ -156,4 +156,4 @@ def configure(variable_name: str, *args, durable=False) -> Union[None, config_va
     if not args:
         return CURRENT_CONFIG.get(variable_name)
     else:
-        CURRENT_CONFIG.set(variable_name, args[0], durable=durable)
+        return CURRENT_CONFIG.set(variable_name, args[0], durable=durable)

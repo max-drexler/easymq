@@ -36,9 +36,10 @@ class ServerConnection(threading.Thread):
             None, None, f"Thread-MQConnection({host})", (), {}, daemon=True
         )
 
-        self._callback_queue = queue.Queue()
-        self._connection: pika.BlockingConnection = None
-        self._channel: BlockingChannel = None
+        self._running = False
+        self._callback_queue: queue.Queue = queue.Queue()
+        self._connection: Optional[pika.BlockingConnection] = None
+        self._channel: Optional[BlockingChannel] = None
         self._confirmed_channel: BlockingChannel = None
         self._con_params = pika.ConnectionParameters(
             host=host,
@@ -54,9 +55,12 @@ class ServerConnection(threading.Thread):
 '{self._con_params.credentials.username}' on port \
 '{self._con_params.port}' and vhost '{self._con_params.virtual_host}'"
         )
-        self._running = False
         self.connect()
         self.start()
+
+    @property
+    def user(self) -> str:
+        return self._con_params.credentials.username
 
     @property
     def port(self) -> int:
@@ -71,26 +75,26 @@ class ServerConnection(threading.Thread):
         return self._con_params.host
 
     @property
-    def is_running(self) -> bool:
-        return self._running
-
-    @property
     def connected(self) -> bool:
-        return self.is_running and not self._connection.is_closed
+        return self._running and not self._connection.is_closed
 
     @contextmanager
-    def prepare_connection(self):
-        if not self.is_running:
-            raise ConnectionAbortedError("Lost connection to RabbitMQ Server")
-        LOGGER.info(f"Connection to {self.server} prepared")
-        yield
-        self._channel_setup()
+    def wrapper(self):
+        if not self._running:
+            LOGGER.error(f'Connection to {self.server} closed')
+            raise ConnectionAbortedError(f"Connection to {self.server} closed")
+        try:
+            yield
+        finally:
+            if self._channel.is_closed or self._confirmed_channel.is_closed:
+                LOGGER.info(f'Re-establishing channels on connection to {self.server}')
+                self._channel_setup()
 
     def run(self) -> None:
         self._running = True
         while self._running:
             try:
-                self._connection.process_data_events(time_limit=1)
+                self._connection.process_data_events(.01)
             except (
                 StreamLostError,
                 AMQPConnectionError,
@@ -127,7 +131,7 @@ class ServerConnection(threading.Thread):
             ProbableAuthenticationError,
         ):
             LOGGER.error(
-                f"Not authenticated to connect to {self.server} with username {self._con_params.credentials.username}"
+                f"Not authenticated to connect to {self.server} with username {self.user}"
             )
             raise NotAuthenticatedError(
                 f"Not authenticated to connect to server {self.server}"
@@ -138,11 +142,13 @@ class ServerConnection(threading.Thread):
         self._connection.process_data_events()
         if self._connection.is_open:
             self._connection.close()
+        LOGGER.info(f'Closed connection to {self.server}')
 
     def close(self) -> None:
         LOGGER.debug(f"Closing connection to {self.server}")
         self._running = False
         if self._connection is None or self._connection.is_closed:
+            LOGGER.info(f'Closed connection to {self.server}')
             return
         self.add_callback(self._close)
 
@@ -172,7 +178,7 @@ class ServerConnection(threading.Thread):
         return id(self)
 
     def __str__(self) -> str:
-        return str(self.server)
+        return f'Connection to {self.server}'
 
 
 class ReconnectConnection(ServerConnection):
@@ -238,10 +244,6 @@ class ReconnectConnection(ServerConnection):
         self._reconnecting.wait(timeout=timeout)
         LOGGER.info(f"Finished waiting for reconnect to {self.server}")
         return self.is_reconnecting
-
-    def prepare_connection(self):
-        self.wait_for_reconnect()
-        return super().prepare_connection()  # need this return
 
 
 class ConnectionPool:
