@@ -140,12 +140,12 @@ class ServerConnection(threading.Thread):
 
     def _close(self) -> None:
         self._connection.process_data_events()
-        if self._connection.is_open:
+        if self._connection is not None and self._connection.is_open:
             self._connection.close()
         LOGGER.info(f'Closed connection to {self.server}')
 
     def close(self) -> None:
-        LOGGER.debug(f"Closing connection to {self.server}")
+        LOGGER.info(f"Closing connection to {self.server}")
         self._running = False
         if self._connection is None or self._connection.is_closed:
             LOGGER.info(f'Closed connection to {self.server}')
@@ -160,9 +160,10 @@ class ServerConnection(threading.Thread):
             self._confirmed_channel.confirm_delivery()
 
     def add_callback(self, callback: Callable, *args, **kwargs) -> None:
-        LOGGER.info(
+        LOGGER.debug(
             f"Adding callback on {self.server}: {callback}, args: {args}, kwargs: {kwargs}"
         )
+        LOGGER.info(f'Currently {self._callback_queue.qsize()} callbacks in queue for {self.server}')
         self._callback_queue.put((callback, args, kwargs))
 
     def __del__(self) -> None:

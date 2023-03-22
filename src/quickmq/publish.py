@@ -39,16 +39,16 @@ class AmqpPublisher:
         )
         try:
             with connection.wrapper():
-                LOGGER.info(
+                LOGGER.debug(
                     f"Connection to {connection.server} ready, attempting to publish to {packet.exchange} exchange"
                 )
                 pub_channel.basic_publish(
                     packet.exchange,
                     routing_key=packet.routing_key,
-                    body=bytes(packet.message.encode(), "utf-8"),
+                    body=packet.message.encode(),
                     properties=packet.properties,
                 )
-                LOGGER.info(f"Published {packet} to {connection.server}")
+                LOGGER.debug(f"Published {packet} to {connection.server}")
         except Exception as e:
             self._publishing_err = e
             LOGGER.warning(
@@ -59,9 +59,10 @@ class AmqpPublisher:
 
     def publish_to_connection(self, connection: ServerConnection, pckt: Packet) -> None:
         if not pckt.confirm:
-            return connection.add_callback(self._publish, connection, pckt)
-        with self.sync_connection():
             connection.add_callback(self._publish, connection, pckt)
+        else:
+            with self.sync_connection():
+                connection.add_callback(self._publish, connection, pckt)
 
     def publish_to_pool(self, pool: ConnectionPool, pckt: Packet) -> None:
         for con in pool:
