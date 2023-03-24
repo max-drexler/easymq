@@ -5,7 +5,8 @@ import time
 from typing import List
 
 import quickmq as mq
-from quickmq import AmqpSession, NotAuthenticatedError
+from quickmq import AmqpSession
+from quickmq.exceptions import NotAuthenticatedError
 
 import pika
 
@@ -59,6 +60,7 @@ def test_setup(cmdln_args: List[str]) -> None:
     con = pika.BlockingConnection()
     chan = con.channel()
     chan.queue_declare('performance_test')
+    chan.queue_purge('performance_test')
     chan.queue_bind('performance_test', 'amq.fanout')
     con.close()
 
@@ -75,7 +77,8 @@ def test_setup(cmdln_args: List[str]) -> None:
 
     if args.messages is not None:
         avg_publish = run_test(publisher, args.messages, args.msg_size, args.confirm)
-        print(f'published {args.messages} messages in {args.messages * avg_publish} seconds (average of {avg_publish} messages per second)')
+        print(f"""published {args.messages} messages in {args.messages * avg_publish}
+seconds (average of {avg_publish} messages per second)""")
         if avg_publish >= args.threshold:
             raise RuntimeError(f'Average time to publish is greater than the threshold {args.threshold}')
         return
@@ -83,8 +86,10 @@ def test_setup(cmdln_args: List[str]) -> None:
     messages = 2
     avg_publish = run_test(publisher, messages, args.msg_size, args.confirm)
     try:
-        while avg_publish < args.threshold:
-            print(f'published {messages} messages in {messages * avg_publish} seconds (average of {avg_publish} messages per second)')
+        while avg_publish < float(args.threshold):
+            print(f"""published {messages} {args.msg_size}b messages in {messages * avg_publish} seconds
+(average of {avg_publish} seconds per message)""")
+            print(f'{1 / avg_publish} messages per second\n')
             messages *= 2
             avg_publish = run_test(publisher, messages, args.msg_size, args.confirm)
         print(f'Could not publish {messages} messages with an average publish time less than {args.threshold}')

@@ -5,6 +5,7 @@ easymq.session
 This module contains objects and functions to maintain a long-term amqp session.
 """
 
+from functools import wraps
 import logging
 from typing import Any, Callable, Iterable, List, Optional, Tuple, Union
 
@@ -30,8 +31,10 @@ class AmqpSession:
     def pool(self) -> ConnectionPool:
         return self._connections
 
+    @staticmethod
     def connection_required(func: Callable) -> Callable:
-        def check_conn(self, *args, **kwargs):
+        @wraps(func)
+        def check_conn(self, *args: Any, **kwargs: Any) -> Any:
             if len(self.servers) > 0:
                 return func(self, *args, **kwargs)
 
@@ -53,7 +56,7 @@ class AmqpSession:
         message: Union[Message, Any],
         key: Optional[str] = None,
         exchange: Optional[str] = None,
-        confirm_delivery=False,
+        confirm_delivery=True,
     ):
         pckt = Packet(
             message if isinstance(message, Message) else Message(message),
@@ -68,7 +71,7 @@ class AmqpSession:
         self,
         messages: Iterable[Union[str, Tuple[str, Any]]],
         exchange: Optional[str] = None,
-        confirm_delivery=False,
+        confirm_delivery=True,
     ):
         for val in messages:
             key = None

@@ -4,7 +4,7 @@ import json
 import pytest
 
 import quickmq
-from quickmq.config import Configuration, Variable, CURRENT_CONFIG
+from quickmq.config import Configuration, ConfigVariable, CURRENT_CONFIG
 
 
 def test_load_custom_cfg():
@@ -34,7 +34,7 @@ def test_variable():
     def verify():
         pass
 
-    new_var = Variable("test_var", "123", verify)
+    new_var = ConfigVariable("test_var", "123", verify)
     assert new_var == "test_var"
     assert new_var == new_var
     assert str(new_var) == "Config variable: test_var"
@@ -54,7 +54,7 @@ def test_set_get_value():
 
 def test_write_value():
     quickmq.configure("default_exchange", "amq.fanout", durable=True)
-    with open(quickmq.config.config_file_path, encoding="utf-8") as cfg_file:
+    with open(quickmq.config.CFG_FILE_PATH, encoding="utf-8") as cfg_file:
         cfg = json.load(cfg_file)
     assert cfg["DEFAULT_EXCHANGE"] == "amq.fanout"
     quickmq.configure("default_exchange", None, durable=True)

@@ -47,6 +47,22 @@ def test_publish_all(create_listener):
         assert json.loads(create_listener.get_message(block=True)) == msg
 
 
+@pytest.mark.parametrize('exchange', ['amq.fanout'])
+def test_non_confirm_publish_all(create_listener):
+    msgs = [f"howdly{i}" for i in range(1000)]
+    quickmq.publish_all(msgs, exchange='amq.fanout', confirm_delivery=False)
+    for msg in msgs:
+        assert json.loads(create_listener.get_message(block=True)) == msg
+
+
+@pytest.mark.parametrize('exchange', ['amq.fanout'])
+def test_non_confirm_publish(create_listener):
+    msg = "Hello World!"
+    quickmq.publish(message=msg, exchange='amq.fanout', confirm_delivery=False)
+    rcvd_bytes = create_listener.get_message(block=True)
+    assert json.loads(rcvd_bytes) == msg
+
+
 def test_publish_non_exchange():
     with pytest.raises(Exception):
         quickmq.publish('Test', exchange='not_existent_exchange', confirm_delivery=True)

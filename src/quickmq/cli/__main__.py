@@ -1,3 +1,10 @@
+"""
+quickmq.cli.__main__
+~~~~~~~~~~~~~~~~~~~~
+
+Deprecated command line interface.
+"""
+
 import argparse
 import sys
 from typing import List, Optional
@@ -6,6 +13,7 @@ import warnings
 from quickmq.config import configure, CURRENT_CONFIG
 from quickmq import __version__
 from quickmq.session import AmqpSession
+
 
 vInfoStr = f"QuickMQ {__version__}"
 
@@ -25,7 +33,7 @@ def main(argv: Optional[List[str]] = None):
         prog="quickmq", description="Use QuickMQ from the command line"
     )
     parser.add_argument(
-        "--version", action="store_true", help="print the version of Q package"
+        "-V", "--version", action="store_true", help="print the version of QuickMQ package"
     )
     parser.add_argument(
         "-v", "--verbose", default=0, action="count", help="specify verbosity of script"

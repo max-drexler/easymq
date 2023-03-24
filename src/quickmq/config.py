@@ -8,10 +8,10 @@ import logging
 
 LOGGER = logging.getLogger('quickmq')
 
-config_values = Union[str, int, float]
-config_file_name = "cfg_vars.json"
-config_file_path = os.path.join(
-    PlatformDirs("easymq").user_config_dir, config_file_name
+CFG_VALS = Union[str, int, float]
+CFG_FILE_NAME = "cfg_vars.json"
+CFG_FILE_PATH = os.path.join(
+    PlatformDirs("easymq").user_config_dir, CFG_FILE_NAME
 )
 
 
@@ -39,11 +39,11 @@ def verify_msg_buf_policy(_obj: Any) -> int:
 
 
 @dataclass
-class Variable:
+class ConfigVariable:
     name: str
-    default_value: config_values
+    default_value: CFG_VALS
     verify_func: Callable
-    current_value: config_values = field(init=False)
+    current_value: CFG_VALS = field(init=False)
 
     def __post_init__(self):
         self.current_value = self.default_value
@@ -60,7 +60,7 @@ class Variable:
 
 class Configuration:
 
-    DEFAULT_VARIABLES: List[Tuple[str, config_values, Callable]] = [
+    DEFAULT_VARIABLES: List[Tuple[str, CFG_VALS, Callable]] = [
         ("RECONNECT_DELAY", 5.0, verify_pos_float),
         ("RECONNECT_TRIES", 3, int),
         ("DEFAULT_SERVER", "localhost", str),
@@ -74,9 +74,9 @@ class Configuration:
     def __init__(self, _config_file_path=None) -> None:
         self._variables = {
             v.name: v
-            for v in [Variable(*args) for args in Configuration.DEFAULT_VARIABLES]
+            for v in [ConfigVariable(*args) for args in Configuration.DEFAULT_VARIABLES]
         }
-        self._config_file_path = _config_file_path or config_file_path
+        self._config_file_path = _config_file_path or CFG_FILE_PATH
 
     @property
     def path(self) -> str:
@@ -105,7 +105,7 @@ class Configuration:
             warnings.warn(f"Couldn't load config from '{file_path}' bad JSON!")
             return new_configuration
         except IOError as e:
-            if file_path != config_file_path:
+            if file_path != CFG_FILE_PATH:
                 LOGGER.warning(f"IOError loading file {file_path}. {e.strerror}")
                 warnings.warn(
                     f"Couldn't load config from '{file_path}' because of {e} using default values"
@@ -131,7 +131,7 @@ class Configuration:
         if durable:
             self._write()
 
-    def get(self, variable_name: str) -> config_values:
+    def get(self, variable_name: str) -> CFG_VALS:
         variable = self._variables.get(variable_name.upper())
         if variable is None:
             raise AttributeError(f"Variable '{variable_name} doesn't exist")
@@ -147,11 +147,11 @@ class Configuration:
 
 
 CURRENT_CONFIG = Configuration.load_from_file(
-    file_path=os.getenv("EASYMQ_CONFIG", config_file_path)
+    file_path=os.getenv("EASYMQ_CONFIG", CFG_FILE_PATH)
 )
 
 
-def configure(variable_name: str, *args, durable=False) -> Union[None, config_values]:
+def configure(variable_name: str, *args, durable=False) -> Union[None, CFG_VALS]:
     variable_name = variable_name.upper()
     if not args:
         return CURRENT_CONFIG.get(variable_name)

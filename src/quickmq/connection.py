@@ -94,7 +94,7 @@ class ServerConnection(threading.Thread):
         self._running = True
         while self._running:
             try:
-                self._connection.process_data_events(.01)
+                self._connection.process_data_events(.005)
             except (
                 StreamLostError,
                 AMQPConnectionError,
@@ -163,7 +163,7 @@ class ServerConnection(threading.Thread):
         LOGGER.debug(
             f"Adding callback on {self.server}: {callback}, args: {args}, kwargs: {kwargs}"
         )
-        LOGGER.info(f'Currently {self._callback_queue.qsize()} callbacks in queue for {self.server}')
+        LOGGER.debug(f'Currently {self._callback_queue.qsize()} callbacks in queue for {self.server}')
         self._callback_queue.put((callback, args, kwargs))
 
     def __del__(self) -> None:
@@ -180,6 +180,9 @@ class ServerConnection(threading.Thread):
 
     def __str__(self) -> str:
         return f'Connection to {self.server}'
+
+    def __repr__(self) -> str:
+        return f'<ServerConnection({self.server}, {self.user}, {self.port}, {self.vhost}, connected?{self.connected})>'
 
 
 class ReconnectConnection(ServerConnection):
@@ -209,6 +212,7 @@ class ReconnectConnection(ServerConnection):
         self.__reconnect()
 
     def __reconnect(self) -> None:
+        LOGGER.info(f'Attempting reconnect to {self.server}')
         self._reconnecting.clear()
         tries = CURRENT_CONFIG.get("RECONNECT_TRIES")
         while self._running:
@@ -238,12 +242,12 @@ class ReconnectConnection(ServerConnection):
                 continue
             tries -= 1
             LOGGER.debug(f"{tries} more reconnect attempts")
+        LOGGER.info(f'Reconnect finished to {self.server}')
         self._reconnecting.set()
 
     def wait_for_reconnect(self, timeout=None) -> bool:
-        LOGGER.info(f"Waiting for reconnect to {self.server}")
         self._reconnecting.wait(timeout=timeout)
-        LOGGER.info(f"Finished waiting for reconnect to {self.server}")
+        LOGGER.info(f'Connection to {self.server} reconnecting? {self.is_reconnecting}')
         return self.is_reconnecting
 
 

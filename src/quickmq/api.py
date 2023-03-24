@@ -33,7 +33,7 @@ def publish(
     message: Any,
     key: Optional[str] = None,
     exchange: Optional[str] = None,
-    confirm_delivery=False,
+    confirm_delivery=True,
 ) -> None:
     _CURRENT_SESSION.publish(message, key, exchange, confirm_delivery)
 
@@ -41,7 +41,7 @@ def publish(
 def publish_all(
     messages: Iterable[Union[str, Tuple[str, Any]]],
     exchange: Optional[str] = None,
-    confirm_delivery=False,
+    confirm_delivery=True,
 ) -> None:
     _CURRENT_SESSION.publish_all(messages, exchange, confirm_delivery)
 

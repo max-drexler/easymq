@@ -34,7 +34,7 @@ QuickMQ is a purely python implementation of a RabbitMQ client. QuickMQ abstract
 * Transactions
 * Confirm that a consumer received a message
 
-QuickMQ is meant to be fairly simple in order to reduce the complexity for a user so these concepts are left out. Clients like [pika](https://github.com/pika/pika) or [aio-pika](https://github.com/mosquito/aio-pika) might be a better fit if you are looking for these features.
+QuickMQ is meant to be fairly simple in order to reduce the complexity for the user so the above concepts are left out. Clients like [pika](https://github.com/pika/pika) or [aio-pika](https://github.com/mosquito/aio-pika) might be a better fit if you are looking for these features.
 
 ## Installation
 
@@ -46,7 +46,7 @@ pip install quickmq
 
 ### Requirements
 
-Python >= 3.7
+Python >= 3.6
 
 ## Usage
 
@@ -63,7 +63,7 @@ mq.disconnect()
 
 This will publish 'Hello World!' to the 'amq.topic' exchange on both server1 and server2.
 
-*Note: this is not very efficient when publishing many (thousands) of messages per second. Use the following api for better efficiency.
+*Note: this is not very efficient when publishing many (hundreds) of messages per second. Use the following api for better efficiency.
 
 ```
 from quickmq import AmqpSession
@@ -73,10 +73,23 @@ session = AmqpSession()
 session.connect('server1', 'server2', auth=('username', 'password'))
 
 for i in range(200000):
-    session.publish(i)
+    session.publish('Hello ' + i, exchange='amq.topic', key='intro.test')
 
 session.disconnect()
 ```
+
+### Command Line Interface
+
+QuickMQ also installs with a command line interface for easy interactions with RabbitMQ from the command line.
+
+
+The above code in python can be accomplished with the following command.
+```
+$ quickmq publish -e amq.topic -s server1 server2 -u username -p password -m 'Hello' -k amq.fanout
+```
+
+Use `quickmq --help` for more information about the command.
+
 
 ### Changing Defaults
 

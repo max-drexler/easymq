@@ -35,6 +35,9 @@ class Message:
     def __str__(self) -> str:
         return f"Message: {self._message}"
 
+    def __repr__(self) -> str:
+        return f'<Message: {self._message}>'
+
 
 @dataclass
 class Packet:

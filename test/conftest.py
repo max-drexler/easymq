@@ -5,7 +5,6 @@ import pika
 import pika.channel
 import threading
 
-# from testcontainers.rabbitmq import RabbitMqContainer
 
 AMQP_ROUTING_KEY = ""
 AMQP_TEST_EXCHANGE = "easymq_test"
