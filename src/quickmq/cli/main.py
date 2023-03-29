@@ -27,7 +27,6 @@ def cmdln_publish(
     messages: Optional[List[str]],
 ) -> None:
     with AmqpSession() as session:
-        print(*servers)
         session.connect(*servers, auth=(username, password))
         if messages is not None:
             session.publish_all([(route, msg) for msg in messages], exchange=exchange, confirm_delivery=True)
@@ -110,7 +109,7 @@ def main(argv: Optional[List[str]] = None):
             username=args.username,
             password=args.password,
             servers=args.servers,
-            route=args.route
+            route=args.key
             )
     elif sub_command == "consume":
         raise NotImplementedError("command line consumption behavior is not yet implemented!")

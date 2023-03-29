@@ -18,6 +18,7 @@ JSONType = Union[str, int, float, bool, None, Dict[str, Any], List[Any]]
 
 
 class Message:
+
     def __init__(self, message: Any) -> None:
         self._message = message
 
@@ -39,7 +40,7 @@ class Message:
         return f'<Message: {self._message}>'
 
 
-@dataclass
+@dataclass(slots=True)
 class Packet:
     message: Message
     routing_key: str

@@ -69,7 +69,7 @@ class AmqpSession:
     @connection_required
     def publish_all(
         self,
-        messages: Iterable[Union[str, Tuple[str, Any]]],
+        messages: Iterable[Union[Any, Tuple[str, Any]]],
         exchange: Optional[str] = None,
         confirm_delivery=True,
     ):

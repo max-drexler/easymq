@@ -1,13 +1,25 @@
-.PHONY: stop_rabbitmq start_rabbitmq tox pytest quick_test test docker-pull clean upload
+.PHONY: help stop_rabbitmq start_rabbitmq tox pytest quick_test test docker-pull upload
 
 RABBIT_MQ_CONTAINER_NAME:=rabbitmq
 RABBIT_MQ_IMAGE:=rabbitmq:3-management
 
+help:
+	@echo "QuickMQ Makefile Options:"
+	@echo -e "\
+	test           -> Runs full test suite \n\
+	quick_test     -> Runs tests on current python interpreter\n\
+	tox            -> Runs full test suite w/o starting server\n\
+	pytest         -> Runs tests on current python interpreter w/o starting server\n\
+	docker-pull    -> Downloads RabbitMQ docker image\n\
+	start_rabbitmq -> Starts the RabbitMQ server locally\n\
+	stop_rabbitmq  -> Stops the local RabbitMQ Server if it is running\n\
+	upload         -> Builds and uploads current code to PyPi\n\
+	test-upload    -> Builds and uploads current code to test-PyPi\n\
+	"
+
 test: stop_rabbitmq start_rabbitmq tox stop_rabbitmq
 
 quick_test: stop_rabbitmq start_rabbitmq pytest stop_rabbitmq
-
-clean: stop_rabbitmq
 
 pytest: 
 	@echo "Runing tests"
