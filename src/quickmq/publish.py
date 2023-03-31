@@ -9,7 +9,7 @@ from .message import Packet
 
 # Possible problem with lock when publishing to multiple servers
 
-LOGGER = logging.getLogger('quickmq')
+LOGGER = logging.getLogger("quickmq")
 
 
 class AmqpPublisher:

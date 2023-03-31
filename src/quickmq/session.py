@@ -15,7 +15,7 @@ from .connection import ConnectionPool
 from .message import Packet, Message
 from .config import CURRENT_CONFIG
 
-LOGGER = logging.getLogger('quickmq')
+LOGGER = logging.getLogger("quickmq")
 
 
 class AmqpSession:

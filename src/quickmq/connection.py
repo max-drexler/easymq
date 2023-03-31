@@ -20,7 +20,7 @@ from pika.exceptions import (
 from .config import CURRENT_CONFIG
 from .exceptions import NotAuthenticatedError
 
-LOGGER = logging.getLogger('quickmq')
+LOGGER = logging.getLogger("quickmq")
 
 
 class ServerConnection(threading.Thread):
@@ -81,20 +81,20 @@ class ServerConnection(threading.Thread):
     @contextmanager
     def wrapper(self):
         if not self._running:
-            LOGGER.error(f'Connection to {self.server} closed')
+            LOGGER.error(f"Connection to {self.server} closed")
             raise ConnectionAbortedError(f"Connection to {self.server} closed")
         try:
             yield
         finally:
             if self._channel.is_closed or self._confirmed_channel.is_closed:
-                LOGGER.info(f'Re-establishing channels on connection to {self.server}')
+                LOGGER.info(f"Re-establishing channels on connection to {self.server}")
                 self._channel_setup()
 
     def run(self) -> None:
         self._running = True
         while self._running:
             try:
-                self._connection.process_data_events(.005)
+                self._connection.process_data_events(0.005)
             except (
                 StreamLostError,
                 AMQPConnectionError,
@@ -142,13 +142,13 @@ class ServerConnection(threading.Thread):
         self._connection.process_data_events()
         if self._connection is not None and self._connection.is_open:
             self._connection.close()
-        LOGGER.info(f'Closed connection to {self.server}')
+        LOGGER.info(f"Closed connection to {self.server}")
 
     def close(self) -> None:
         LOGGER.info(f"Closing connection to {self.server}")
         self._running = False
         if self._connection is None or self._connection.is_closed:
-            LOGGER.info(f'Closed connection to {self.server}')
+            LOGGER.info(f"Closed connection to {self.server}")
             return
         self.add_callback(self._close)
 
@@ -163,7 +163,9 @@ class ServerConnection(threading.Thread):
         LOGGER.debug(
             f"Adding callback on {self.server}: {callback}, args: {args}, kwargs: {kwargs}"
         )
-        LOGGER.debug(f'Currently {self._callback_queue.qsize()} callbacks in queue for {self.server}')
+        LOGGER.debug(
+            f"Currently {self._callback_queue.qsize()} callbacks in queue for {self.server}"
+        )
         self._callback_queue.put((callback, args, kwargs))
 
     def __del__(self) -> None:
@@ -179,10 +181,10 @@ class ServerConnection(threading.Thread):
         return id(self)
 
     def __str__(self) -> str:
-        return f'Connection to {self.server}'
+        return f"Connection to {self.server}"
 
     def __repr__(self) -> str:
-        return f'<ServerConnection({self.server}, {self.user}, {self.port}, {self.vhost}, connected?{self.connected})>'
+        return f"<ServerConnection({self.server}, {self.user}, {self.port}, {self.vhost}, connected?{self.connected})>"
 
 
 class ReconnectConnection(ServerConnection):
@@ -212,7 +214,7 @@ class ReconnectConnection(ServerConnection):
         self.__reconnect()
 
     def __reconnect(self) -> None:
-        LOGGER.info(f'Attempting reconnect to {self.server}')
+        LOGGER.info(f"Attempting reconnect to {self.server}")
         self._reconnecting.clear()
         tries = CURRENT_CONFIG.get("RECONNECT_TRIES")
         while self._running:
@@ -242,12 +244,12 @@ class ReconnectConnection(ServerConnection):
                 continue
             tries -= 1
             LOGGER.debug(f"{tries} more reconnect attempts")
-        LOGGER.info(f'Reconnect finished to {self.server}')
+        LOGGER.info(f"Reconnect finished to {self.server}")
         self._reconnecting.set()
 
     def wait_for_reconnect(self, timeout=None) -> bool:
         self._reconnecting.wait(timeout=timeout)
-        LOGGER.info(f'Connection to {self.server} reconnecting? {self.is_reconnecting}')
+        LOGGER.info(f"Connection to {self.server} reconnecting? {self.is_reconnecting}")
         return self.is_reconnecting
 
 

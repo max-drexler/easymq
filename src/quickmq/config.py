@@ -6,13 +6,11 @@ from typing import Dict, Callable, List, Tuple, Union, Any
 from platformdirs import PlatformDirs
 import logging
 
-LOGGER = logging.getLogger('quickmq')
+LOGGER = logging.getLogger("quickmq")
 
 CFG_VALS = Union[str, int, float]
 CFG_FILE_NAME = "cfg_vars.json"
-CFG_FILE_PATH = os.path.join(
-    PlatformDirs("easymq").user_config_dir, CFG_FILE_NAME
-)
+CFG_FILE_PATH = os.path.join(PlatformDirs("easymq").user_config_dir, CFG_FILE_NAME)
 
 
 def verify_pos_float(_obj: Any) -> float:

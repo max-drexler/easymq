@@ -33,7 +33,10 @@ def main(argv: Optional[List[str]] = None):
         prog="quickmq", description="Use QuickMQ from the command line"
     )
     parser.add_argument(
-        "-V", "--version", action="store_true", help="print the version of QuickMQ package"
+        "-V",
+        "--version",
+        action="store_true",
+        help="print the version of QuickMQ package",
     )
     parser.add_argument(
         "-v", "--verbose", default=0, action="count", help="specify verbosity of script"

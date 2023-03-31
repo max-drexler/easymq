@@ -18,7 +18,6 @@ JSONType = Union[str, int, float, bool, None, Dict[str, Any], List[Any]]
 
 
 class Message:
-
     def __init__(self, message: Any) -> None:
         self._message = message
 
@@ -26,7 +25,7 @@ class Message:
         if isinstance(self._message, bytes):
             return self._message
         try:
-            return bytes(json.dumps(self._message), encoding='utf-8')
+            return bytes(json.dumps(self._message), encoding="utf-8")
         except (TypeError, ValueError):
             raise EncodingError(f"Could not encode the message {self._message}")
 
@@ -37,7 +36,7 @@ class Message:
         return f"Message: {self._message}"
 
     def __repr__(self) -> str:
-        return f'<Message: {self._message}>'
+        return f"<Message: {self._message}>"
 
 
 @dataclass(slots=True)
