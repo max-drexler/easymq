@@ -31,4 +31,6 @@ def test_publish_from_stdin(create_listener):
     except subprocess.TimeoutExpired:
         proc.kill()
     rcvd_bytes = create_listener.get_message(block=False)
+    if rcvd_bytes is None:
+        assert False
     assert loads(rcvd_bytes) == 'Hello'

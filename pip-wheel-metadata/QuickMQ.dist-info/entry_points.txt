@@ -1,0 +1,3 @@
+[console_scripts]
+quickmq = quickmq.cli.main:main
+
