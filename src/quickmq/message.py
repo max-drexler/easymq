@@ -39,7 +39,7 @@ class Message:
         return f"<Message: {self._message}>"
 
 
-@dataclass(slots=True)
+@dataclass
 class Packet:
     message: Message
     routing_key: str

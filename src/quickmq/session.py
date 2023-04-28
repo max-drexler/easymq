@@ -31,7 +31,6 @@ class AmqpSession:
     def pool(self) -> ConnectionPool:
         return self._connections
 
-    @staticmethod
     def connection_required(func: Callable) -> Callable:
         @wraps(func)
         def check_conn(self, *args: Any, **kwargs: Any) -> Any:
