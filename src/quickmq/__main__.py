@@ -1,5 +1,5 @@
 """
-quickmq.cli.main
+quickmq.__main__
 ~~~~~~~~~~~~~~~~~~~~
 
 Command line interface for QuickMQ package.
@@ -7,15 +7,23 @@ Command line interface for QuickMQ package.
 
 import argparse
 import sys
-from typing import List, Optional
+from typing import List, Optional, Tuple
 import logging
 
 from quickmq import __version__
+from quickmq.config import CFG_FILE_PATH
 from quickmq.session import AmqpSession
 
 log = logging.getLogger("quickmq")
 
-vInfoStr = f"QuickMQ {__version__}"
+version_str = f"QuickMQ {__version__}"
+title_str = r"""
+_______        _      __   __  _______ 
+__  __ \__  __(_)____/ /__/  |/  / __ \
+_  / / / / / / / ___/ //_/ /|_/ / / / /
+/ /_/ / /_/ / / /__/ ,< / /  / / /_/ / 
+\___\_\__,_/_/\___/_/|_/_/  /_/\___\_\ 
+"""
 
 
 def cmdln_publish(
@@ -45,7 +53,25 @@ def cmdln_publish(
             return
 
 
-def main(argv: Optional[List[str]] = None):
+def print_quickmq_info() -> None:
+    print(title_str)
+    print()
+    print(f'version : {__version__}')
+    print(f'user config file : {CFG_FILE_PATH}')
+
+
+def parse_arguments(
+    argv: Optional[List[str]] = None,
+) -> Tuple[argparse.Namespace, argparse.ArgumentParser]:
+    """Parses
+
+    Args:
+        argv (Optional[List[str]], optional): specific arguments to parse. Defaults to None.
+
+    Returns:
+        Tuple[argparse.Namespace, argparse.ArgumentParser]: the argparse namespace and parser
+    """
+
     parser = argparse.ArgumentParser(
         prog="quickmq", description="Use QuickMQ from the command line"
     )
@@ -59,11 +85,11 @@ def main(argv: Optional[List[str]] = None):
         "-v", "--verbose", default=0, action="count", help="specify verbosity of script"
     )
 
-    subparsers = parser.add_subparsers(dest="cmd")
+    subparsers = parser.add_subparsers(dest="command")
     publish_parser = subparsers.add_parser(
         "publish",
         description="Publish messages to rabbitmq server(s) from the command line",
-        help="publish messages",
+        help="Publish AMQP messages",
     )
 
     publish_parser.add_argument(
@@ -104,7 +130,17 @@ def main(argv: Optional[List[str]] = None):
         help="Routing key to publish message(s) with, default is '%(default)s'.",
     )
 
-    args = parser.parse_args(args=argv)
+    info_parser = subparsers.add_parser(
+        "info",
+        description="Show more information about QuickMQ",
+        help="Show QuickMQ information",
+    )
+
+    return parser.parse_args(argv), parser
+
+
+def main(argv: Optional[List[str]] = None):
+    args, parser = parse_arguments(argv)
 
     levels = [
         logging.ERROR,
@@ -118,7 +154,7 @@ def main(argv: Optional[List[str]] = None):
     log.addHandler(ch)
     log.setLevel(levels[min(4, args.verbose)])
 
-    sub_command = getattr(args, "cmd")
+    sub_command = getattr(args, "command")
     if sub_command == "publish":
         cmdln_publish(
             messages=args.messages,
@@ -132,9 +168,11 @@ def main(argv: Optional[List[str]] = None):
         raise NotImplementedError(
             "command line consumption behavior is not yet implemented!"
         )
+    elif sub_command == 'info':
+        print_quickmq_info()
     else:
         if getattr(args, "version"):
-            print(vInfoStr)
+            print(version_str)
         else:
             parser.print_usage()
     return 0

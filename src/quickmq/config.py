@@ -57,7 +57,6 @@ class ConfigVariable:
 
 
 class Configuration:
-
     DEFAULT_VARIABLES: List[Tuple[str, CFG_VALS, Callable]] = [
         ("RECONNECT_DELAY", 5.0, verify_pos_float),
         ("RECONNECT_TRIES", 3, int),
@@ -110,7 +109,7 @@ class Configuration:
                 )
             return new_configuration
 
-        for (k, v) in new_cfg_file.items():
+        for k, v in new_cfg_file.items():
             try:
                 new_configuration.set(k, v)
             except (AttributeError, ValueError) as e:
