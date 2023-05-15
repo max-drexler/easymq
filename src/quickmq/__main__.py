@@ -18,11 +18,11 @@ log = logging.getLogger("quickmq")
 
 version_str = f"QuickMQ {__version__}"
 title_str = r"""
-_______        _      __   __  _______ 
+_______        _      __   __  _______
 __  __ \__  __(_)____/ /__/  |/  / __ \
 _  / / / / / / / ___/ //_/ /|_/ / / / /
-/ /_/ / /_/ / / /__/ ,< / /  / / /_/ / 
-\___\_\__,_/_/\___/_/|_/_/  /_/\___\_\ 
+/ /_/ / /_/ / / /__/ ,< / /  / / /_/ /
+\___\_\__,_/_/\___/_/|_/_/  /_/\___\_\
 """
 
 
@@ -130,7 +130,7 @@ def parse_arguments(
         help="Routing key to publish message(s) with, default is '%(default)s'.",
     )
 
-    info_parser = subparsers.add_parser(
+    subparsers.add_parser(
         "info",
         description="Show more information about QuickMQ",
         help="Show QuickMQ information",
