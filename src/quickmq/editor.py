@@ -45,7 +45,7 @@ class TopologyEditor:
     ) -> None:
         pass
 
-    def __exchange_check():
+    def __exchange_check(self):
         pass
 
     def exchange_check(
@@ -56,7 +56,7 @@ class TopologyEditor:
         auto_delete=False,
         internal=False,
     ) -> bool:
-        pass
+        return False
 
     def exchange_delete(self, exchange: str, if_unused=False) -> None:
         pass
@@ -72,7 +72,7 @@ class TopologyEditor:
     def queue_check(
         self, queue: str, durable=False, exclusive=False, auto_delete=False
     ) -> bool:
-        pass
+        return False
 
     def queue_purge(self, queue: str) -> None:
         pass

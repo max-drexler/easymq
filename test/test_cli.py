@@ -30,7 +30,7 @@ def test_publish_from_stdin(create_listener):
         proc.communicate(input=b'Hello', timeout=.1)
     except subprocess.TimeoutExpired:
         proc.kill()
-    rcvd_bytes = create_listener.get_message(block=False)
+    rcvd_bytes = create_listener.get_message(block=True)
     if rcvd_bytes is None:
         assert False
     assert loads(rcvd_bytes) == 'Hello'

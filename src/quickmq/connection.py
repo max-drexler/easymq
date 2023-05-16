@@ -40,7 +40,7 @@ class ServerConnection(threading.Thread):
         self._callback_queue: queue.Queue = queue.Queue()
         self._connection: Optional[pika.BlockingConnection] = None
         self._channel: Optional[BlockingChannel] = None
-        self._confirmed_channel: BlockingChannel = None
+        self._confirmed_channel: Optional[BlockingChannel] = None
         self._con_params = pika.ConnectionParameters(
             host=host,
             port=port or CURRENT_CONFIG.get("RABBITMQ_PORT"),
@@ -76,7 +76,11 @@ class ServerConnection(threading.Thread):
 
     @property
     def connected(self) -> bool:
-        return self._running and not self._connection.is_closed
+        return (
+            self._running
+            and self._connection is not None
+            and not self._connection.is_closed
+        )
 
     @contextmanager
     def wrapper(self):
@@ -86,7 +90,12 @@ class ServerConnection(threading.Thread):
         try:
             yield
         finally:
-            if self._channel.is_closed or self._confirmed_channel.is_closed:
+            if (
+                self._channel is None
+                or self._confirmed_channel is None
+                or self._channel.is_closed
+                or self._confirmed_channel.is_closed
+            ):
                 LOGGER.info(f"Re-establishing channels on connection to {self.server}")
                 self._channel_setup()
 
@@ -139,8 +148,10 @@ class ServerConnection(threading.Thread):
         LOGGER.info(f"Connection established to {self.server}")
 
     def _close(self) -> None:
+        if self._connection is None:
+            return
         self._connection.process_data_events()
-        if self._connection is not None and self._connection.is_open:
+        if self._connection.is_open:
             self._connection.close()
         LOGGER.info(f"Closed connection to {self.server}")
 
@@ -153,6 +164,8 @@ class ServerConnection(threading.Thread):
         self.add_callback(self._close)
 
     def _channel_setup(self) -> None:
+        if self._connection is None:
+            raise RuntimeError('Cannot setup channels when connection is unititialized!!')
         if self._channel is None or self._channel.is_closed:
             self._channel = self._connection.channel()
         if self._confirmed_channel is None or self._confirmed_channel.is_closed:
@@ -231,6 +244,8 @@ class ReconnectConnection(ServerConnection):
                 )
             try:
                 self.connect()
+                if self._connection is None:
+                    raise AMQPConnectionError('Connection not established')
                 if self._connection.is_open:
                     break
             except AMQPConnectionError:

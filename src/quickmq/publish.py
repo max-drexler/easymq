@@ -37,6 +37,9 @@ class AmqpPublisher:
         pub_channel = (
             connection._confirmed_channel if packet.confirm else connection._channel
         )
+        while pub_channel is None:
+            connection.connect()
+
         try:
             with connection.wrapper():
                 LOGGER.debug(
