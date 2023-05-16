@@ -261,19 +261,20 @@ class ConnectionPool:
     def connections(self) -> List[ServerConnection]:
         return self._connections
 
-    def _remove_connection(self, server: str) -> None:
+    def remove_server(self, server: str) -> bool:
         try:
             con_index = self._connections.index(server)
         except ValueError:
             LOGGER.debug(f"{server} not in current connection pool")
-            return
+            return False
         connection = self._connections.pop(con_index)
         connection.close()
+        return True
 
     def add_server(
         self, new_server: str, auth: Tuple[Optional[str], Optional[str]] = (None, None)
     ) -> None:
-        self._remove_connection(new_server)  # Remove connection if it already exists
+        self.remove_server(new_server)  # Remove connection if it already exists
         self._connections.append(
             ReconnectConnection(
                 host=new_server,
@@ -283,15 +284,13 @@ class ConnectionPool:
         )
 
     def add_connection(self, new_conn: ServerConnection) -> None:
-        self._remove_connection(new_conn.server)
+        self.remove_server(new_conn.server)
         self._connections.append(new_conn)
 
-    def remove_server(self, server: str) -> None:
-        self._remove_connection(server)
-
     def remove_all(self) -> None:
-        for con in self._connections:
-            self._remove_connection(con.server)
+        for con in self._connections.copy():
+            LOGGER.debug(f"removing {con.server} from connection pool")
+            self.remove_server(con.server)
 
     def __len__(self) -> int:
         return len(self._connections)

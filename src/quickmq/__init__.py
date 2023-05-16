@@ -21,4 +21,4 @@ __all__ = [
     "Message",
 ]
 
-logging.getLogger(__name__).addHandler(logging.NullHandler())
+logging.getLogger("quickmq").addHandler(logging.NullHandler())
