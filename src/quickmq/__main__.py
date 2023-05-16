@@ -56,8 +56,8 @@ def cmdln_publish(
 def print_quickmq_info() -> None:
     print(title_str)
     print()
-    print(f'version : {__version__}')
-    print(f'user config file : {CFG_FILE_PATH}')
+    print(f"version : {__version__}")
+    print(f"user config file : {CFG_FILE_PATH}")
 
 
 def parse_arguments(
@@ -168,7 +168,7 @@ def main(argv: Optional[List[str]] = None):
         raise NotImplementedError(
             "command line consumption behavior is not yet implemented!"
         )
-    elif sub_command == 'info':
+    elif sub_command == "info":
         print_quickmq_info()
     else:
         if getattr(args, "version"):
