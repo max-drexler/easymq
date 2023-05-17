@@ -219,7 +219,9 @@ class ServerConnection(threading.Thread):
         self._callback_queue.put((callback, args, kwargs))
 
     def __del__(self) -> None:
-        if not hasattr(self, '_connection'):
+        """Close connection at garbage collection
+        """
+        if not hasattr(self, '_connection'):  # class attributes not gauranteed
             return
         try:
             self._connection.close(500, 'Garbage collection')
