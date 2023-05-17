@@ -18,6 +18,25 @@ from .config import CURRENT_CONFIG
 LOGGER = logging.getLogger("quickmq")
 
 
+def connection_required(func: Callable) -> Callable:
+    @wraps(func)
+    def check_conn(self, *args: Any, **kwargs: Any) -> Any:
+        if len(self.servers) > 0:
+            return func(self, *args, **kwargs)
+
+        try:
+            self.connect(CURRENT_CONFIG.get("DEFAULT_SERVER"))
+            return func(self, *args, **kwargs)
+        except (NotAuthenticatedError, ConnectionError, AttributeError) as e:
+            LOGGER.critical(f"Error when connecting to default server: {e}")
+            raise NotConnectedError(
+                f"Need to be connected to a server, "
+                f"could not connect to default '{CURRENT_CONFIG.get('DEFAULT_SERVER')}"
+            )
+
+    return check_conn
+
+
 class AmqpSession:
     def __init__(self) -> None:
         self._connections = ConnectionPool()
@@ -30,24 +49,6 @@ class AmqpSession:
     @property
     def pool(self) -> ConnectionPool:
         return self._connections
-
-    def connection_required(func: Callable) -> Callable:
-        @wraps(func)
-        def check_conn(self, *args: Any, **kwargs: Any) -> Any:
-            if len(self.servers) > 0:
-                return func(self, *args, **kwargs)
-
-            try:
-                self.connect(CURRENT_CONFIG.get("DEFAULT_SERVER"))
-                return func(self, *args, **kwargs)
-            except (NotAuthenticatedError, ConnectionError, AttributeError) as e:
-                LOGGER.critical(f"Error when connecting to default server: {e}")
-                raise NotConnectedError(
-                    f"Need to be connected to a server,\
-    could not connect to default '{CURRENT_CONFIG.get('DEFAULT_SERVER')}"
-                )
-
-        return check_conn
 
     @connection_required
     def publish(

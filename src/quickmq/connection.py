@@ -15,6 +15,7 @@ from pika.exceptions import (
     ProbableAccessDeniedError,
     ProbableAuthenticationError,
     StreamLostError,
+    ConnectionWrongStateError
 )
 
 from .config import CURRENT_CONFIG
@@ -24,6 +25,17 @@ LOGGER = logging.getLogger("quickmq")
 
 
 def create_default_channel(connection: pika.BlockingConnection) -> BlockingChannel:
+    """Creates a default channel on the given connection and returns a reference
+
+    Args:
+        connection (pika.BlockingConnection): connection to create a channel on
+
+    Raises:
+        ConnectionError: if the connection is currently closed
+
+    Returns:
+        BlockingChannel: a reference to the created channel
+    """
     if connection.is_closed:
         raise ConnectionError(
             f"Cannot setup channels on {connection}, the connection is closed"
@@ -33,6 +45,17 @@ def create_default_channel(connection: pika.BlockingConnection) -> BlockingChann
 
 
 def create_confirm_channel(connection: pika.BlockingConnection) -> BlockingChannel:
+    """Creates a confirmed channel on the given connection and returns a reference
+
+    Args:
+        connection (pika.BlockingConnection): connection to create a channel on
+
+    Raises:
+        ConnectionError: if the connection is currently closed
+
+    Returns:
+        BlockingChannel: a reference to the created channel
+    """
     if connection.is_closed:
         raise ConnectionError(
             f"Cannot setup channels on {connection}, the connection is closed"
@@ -45,6 +68,18 @@ def create_confirm_channel(connection: pika.BlockingConnection) -> BlockingChann
 def create_connection(
     connection_parameters: pika.ConnectionParameters,
 ) -> pika.BlockingConnection:
+    """Creates a connection and raises necessary errors
+
+    Args:
+        connection_parameters (pika.ConnectionParameters): parameters to create connection with
+
+    Raises:
+        ConnectionError: The server doesn't exist
+        NotAuthenticatedError: user isn't authenticated to connect to the server
+
+    Returns:
+        pika.BlockingConnection: The connection to the server
+    """
     try:
         connection = pika.BlockingConnection(parameters=connection_parameters)
         LOGGER.info(f"Connection established to {connection_parameters.host}")
@@ -98,11 +133,6 @@ class ServerConnection(threading.Thread):
         self._connection: pika.BlockingConnection = create_connection(self._con_params)
         self._default_channel = create_default_channel(self._connection)
         self._confirmed_channel = create_confirm_channel(self._connection)
-        self._pre_init_hook_()
-        # self.start()
-
-    def _pre_init_hook_(self) -> None:
-        pass
 
     @property
     def user(self) -> str:
@@ -187,8 +217,12 @@ class ServerConnection(threading.Thread):
         self._callback_queue.put((callback, args, kwargs))
 
     def __del__(self) -> None:
-        self.close()
-        del self._connection
+        if not hasattr(self, '_connection'):
+            return
+        try:
+            self._connection.close(500, 'Garbage collection')
+        except ConnectionWrongStateError:
+            return
 
     def __eq__(self, _obj: Any) -> bool:
         if isinstance(_obj, str):
@@ -281,14 +315,13 @@ class ConnectionPool:
         return self._connections
 
     def remove_server(self, server: str) -> bool:
-        try:
-            con_index = self._connections.index(server)
-        except ValueError:
-            LOGGER.debug(f"{server} not in current connection pool")
-            return False
-        connection = self._connections.pop(con_index)
-        connection.close()
-        return True
+        for serv in self._connections.copy():
+            if serv.server == server:
+                LOGGER.info(f'Found {serv.server} in pool, removing')
+                serv.close()
+                self._connections.remove(serv)
+                return True
+        return False
 
     def add_server(
         self, new_server: str, auth: Tuple[Optional[str], Optional[str]] = (None, None)
