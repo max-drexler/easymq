@@ -35,10 +35,10 @@ class AmqpPublisher:
 
     def _publish(self, connection: ServerConnection, packet: Packet) -> None:
         pub_channel = (
-            connection._confirmed_channel if packet.confirm else connection._channel
+            connection._confirmed_channel
+            if packet.confirm
+            else connection._default_channel
         )
-        while pub_channel is None:
-            connection.connect()
 
         try:
             with connection.wrapper():

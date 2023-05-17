@@ -51,6 +51,7 @@ def test_callback():
     def callback():
         evnt.set()
     connection = ServerConnection('localhost')
+    connection.start()
     connection.add_callback(callback)
     evnt.wait()
 
@@ -83,7 +84,9 @@ def test_connection_pool():
         event.set()
 
     pool = ConnectionPool()
-    pool.add_connection(ReconnectConnection("localhost"))
+    con = ReconnectConnection("localhost")
+    con.start()
+    pool.add_connection(con)
     assert len(pool) == 1
     pool.add_callback(callbck)
     event.wait(2.0)
@@ -94,7 +97,7 @@ def test_connection_pool():
 @pytest.mark.skip
 def test_close_on_error(disconnect_rabbitmq, restart_rabbitmq, capsys):
     con = ServerConnection("localhost")
-    con.connect()  # this is automatically called, just for testing purposes
+    con.start()
     assert con.connected
     try:
         disconnect_rabbitmq()

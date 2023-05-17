@@ -44,7 +44,7 @@ class Packet:
     message: Message
     routing_key: str
     exchange: str
-    confirm: bool = False
+    confirm: bool = True
     properties: pika.BasicProperties = pika.BasicProperties(
         delivery_mode=1, content_type="application/json"
     )

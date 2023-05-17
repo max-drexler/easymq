@@ -15,12 +15,90 @@ from pika.exceptions import (
     ProbableAccessDeniedError,
     ProbableAuthenticationError,
     StreamLostError,
+    ConnectionWrongStateError
 )
 
 from .config import CURRENT_CONFIG
 from .exceptions import NotAuthenticatedError
 
 LOGGER = logging.getLogger("quickmq")
+
+
+def create_default_channel(connection: pika.BlockingConnection) -> BlockingChannel:
+    """Creates a default channel on the given connection and returns a reference
+
+    Args:
+        connection (pika.BlockingConnection): connection to create a channel on
+
+    Raises:
+        ConnectionError: if the connection is currently closed
+
+    Returns:
+        BlockingChannel: a reference to the created channel
+    """
+    if connection.is_closed:
+        raise ConnectionError(
+            f"Cannot setup channels on {connection}, the connection is closed"
+        )
+    non_confirm_channel = connection.channel()
+    return non_confirm_channel
+
+
+def create_confirm_channel(connection: pika.BlockingConnection) -> BlockingChannel:
+    """Creates a confirmed channel on the given connection and returns a reference
+
+    Args:
+        connection (pika.BlockingConnection): connection to create a channel on
+
+    Raises:
+        ConnectionError: if the connection is currently closed
+
+    Returns:
+        BlockingChannel: a reference to the created channel
+    """
+    if connection.is_closed:
+        raise ConnectionError(
+            f"Cannot setup channels on {connection}, the connection is closed"
+        )
+    confirm_channel = connection.channel()
+    confirm_channel.confirm_delivery()
+    return confirm_channel
+
+
+def create_connection(
+    connection_parameters: pika.ConnectionParameters,
+) -> pika.BlockingConnection:
+    """Creates a connection and raises necessary errors
+
+    Args:
+        connection_parameters (pika.ConnectionParameters): parameters to create connection with
+
+    Raises:
+        ConnectionError: The server doesn't exist
+        NotAuthenticatedError: user isn't authenticated to connect to the server
+
+    Returns:
+        pika.BlockingConnection: The connection to the server
+    """
+    try:
+        connection = pika.BlockingConnection(parameters=connection_parameters)
+        LOGGER.info(f"Connection established to {connection_parameters.host}")
+        return connection
+    except (socket.gaierror, socket.herror) as e:
+        LOGGER.error(f"Socket error connecting to {connection_parameters.host}: {e}")
+        raise ConnectionError("Could not connect to server")
+    except (
+        AuthenticationError,
+        ProbableAccessDeniedError,
+        ProbableAuthenticationError,
+    ):
+        LOGGER.error(
+            f"Not authenticated to connect to {connection_parameters.host} "
+            f"with username {connection_parameters.credentials.username}"
+        )
+        raise NotAuthenticatedError(
+            f"Not authenticated to connect to server {connection_parameters.host}"
+        )
 
 
 class ServerConnection(threading.Thread):
@@ -35,12 +113,6 @@ class ServerConnection(threading.Thread):
         super().__init__(
             None, None, f"Thread-MQConnection({host})", (), {}, daemon=True
         )
-
-        self._running = False
-        self._callback_queue: queue.Queue = queue.Queue()
-        self._connection: Optional[pika.BlockingConnection] = None
-        self._channel: Optional[BlockingChannel] = None
-        self._confirmed_channel: Optional[BlockingChannel] = None
         self._con_params = pika.ConnectionParameters(
             host=host,
             port=port or CURRENT_CONFIG.get("RABBITMQ_PORT"),
@@ -51,12 +123,16 @@ class ServerConnection(threading.Thread):
             ),
         )
         LOGGER.info(
-            f"Setting up connection to '{host}' with username \
-'{self._con_params.credentials.username}' on port \
-'{self._con_params.port}' and vhost '{self._con_params.virtual_host}'"
+            f"Setting up connection to '{host}' with username "
+            f"'{self._con_params.credentials.username}' on port "
+            f"'{self._con_params.port}' and vhost '{self._con_params.virtual_host}'"
         )
-        self.connect()
-        self.start()
+
+        self._running = False
+        self._callback_queue: queue.Queue = queue.Queue()
+        self._connection: pika.BlockingConnection = create_connection(self._con_params)
+        self._default_channel = create_default_channel(self._connection)
+        self._confirmed_channel = create_confirm_channel(self._connection)
 
     @property
     def user(self) -> str:
@@ -76,11 +152,7 @@ class ServerConnection(threading.Thread):
 
     @property
     def connected(self) -> bool:
-        return (
-            self._running
-            and self._connection is not None
-            and not self._connection.is_closed
-        )
+        return self._running and self._connection.is_open
 
     @contextmanager
     def wrapper(self):
@@ -90,14 +162,10 @@ class ServerConnection(threading.Thread):
         try:
             yield
         finally:
-            if (
-                self._channel is None
-                or self._confirmed_channel is None
-                or self._channel.is_closed
-                or self._confirmed_channel.is_closed
-            ):
-                LOGGER.info(f"Re-establishing channels on connection to {self.server}")
-                self._channel_setup()
+            if self._default_channel.is_closed:
+                self._default_channel = create_default_channel(self._connection)
+            if self._confirmed_channel.is_closed:
+                self._confirmed_channel = create_confirm_channel(self._connection)
 
     def run(self) -> None:
         self._running = True
@@ -125,28 +193,6 @@ class ServerConnection(threading.Thread):
         )
         self.close()
 
-    def connect(self) -> None:
-        if self._connection is not None and self._connection.is_open:
-            self._channel_setup()
-        try:
-            self._connection = pika.BlockingConnection(parameters=self._con_params)
-            self._channel_setup()
-        except (socket.gaierror, socket.herror) as e:
-            LOGGER.error(f"Socket error connecting to {self.server}: {e}")
-            raise ConnectionError("Could not connect to server")
-        except (
-            AuthenticationError,
-            ProbableAccessDeniedError,
-            ProbableAuthenticationError,
-        ):
-            LOGGER.error(
-                f"Not authenticated to connect to {self.server} with username {self.user}"
-            )
-            raise NotAuthenticatedError(
-                f"Not authenticated to connect to server {self.server}"
-            )
-        LOGGER.info(f"Connection established to {self.server}")
-
     def _close(self) -> None:
         if self._connection is None:
             return
@@ -158,19 +204,10 @@ class ServerConnection(threading.Thread):
     def close(self) -> None:
         LOGGER.info(f"Closing connection to {self.server}")
         self._running = False
-        if self._connection is None or self._connection.is_closed:
+        if self._connection.is_closed:
             LOGGER.info(f"Closed connection to {self.server}")
             return
         self.add_callback(self._close)
-
-    def _channel_setup(self) -> None:
-        if self._connection is None:
-            raise RuntimeError('Cannot setup channels when connection is unititialized!!')
-        if self._channel is None or self._channel.is_closed:
-            self._channel = self._connection.channel()
-        if self._confirmed_channel is None or self._confirmed_channel.is_closed:
-            self._confirmed_channel = self._connection.channel()
-            self._confirmed_channel.confirm_delivery()
 
     def add_callback(self, callback: Callable, *args, **kwargs) -> None:
         LOGGER.debug(
@@ -182,8 +219,12 @@ class ServerConnection(threading.Thread):
         self._callback_queue.put((callback, args, kwargs))
 
     def __del__(self) -> None:
-        self.close()
-        del self._connection
+        if not hasattr(self, '_connection'):
+            return
+        try:
+            self._connection.close(500, 'Garbage collection')
+        except ConnectionWrongStateError:
+            return
 
     def __eq__(self, _obj: Any) -> bool:
         if isinstance(_obj, str):
@@ -209,10 +250,9 @@ class ReconnectConnection(ServerConnection):
         username: Optional[str] = None,
         password: Optional[str] = None,
     ) -> None:
+        super().__init__(host, port, vhost, username, password)
         self._reconnecting = threading.Event()
         self._reconnecting.set()  # not currently reconnecting, threads shouldn't wait
-
-        super().__init__(host, port, vhost, username, password)
 
     @property
     def is_reconnecting(self) -> bool:
@@ -243,12 +283,12 @@ class ReconnectConnection(ServerConnection):
                     {CURRENT_CONFIG.get('RECONNECT_TRIES')} attempt(s), exiting..."
                 )
             try:
-                self.connect()
+                self._connection = create_connection(self._con_params)
                 if self._connection is None:
-                    raise AMQPConnectionError('Connection not established')
+                    raise AMQPConnectionError("Connection not established")
                 if self._connection.is_open:
                     break
-            except AMQPConnectionError:
+            except (AMQPConnectionError, ConnectionError):
                 pass
             if self._running:
                 LOGGER.debug(
@@ -277,26 +317,25 @@ class ConnectionPool:
         return self._connections
 
     def remove_server(self, server: str) -> bool:
-        try:
-            con_index = self._connections.index(server)
-        except ValueError:
-            LOGGER.debug(f"{server} not in current connection pool")
-            return False
-        connection = self._connections.pop(con_index)
-        connection.close()
-        return True
+        for serv in self._connections.copy():
+            if serv.server == server:
+                LOGGER.info(f'Found {serv.server} in pool, removing')
+                serv.close()
+                self._connections.remove(serv)
+                return True
+        return False
 
     def add_server(
         self, new_server: str, auth: Tuple[Optional[str], Optional[str]] = (None, None)
     ) -> None:
         self.remove_server(new_server)  # Remove connection if it already exists
-        self._connections.append(
-            ReconnectConnection(
+        new_con = ReconnectConnection(
                 host=new_server,
                 username=auth[0],
                 password=auth[1],
             )
-        )
+        self._connections.append(new_con)
+        new_con.start()
 
     def add_connection(self, new_conn: ServerConnection) -> None:
         self.remove_server(new_conn.server)
