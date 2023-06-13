@@ -23,8 +23,8 @@ def test_publish_context_manager():
 def test_connect_context_manager():
     with AmqpSession() as session:
         session.connect('localhost')
-        assert len(session.pool.connections) == 1
-        connection = session.pool.connections[0]
+        assert len(session._connection_pool.connections) == 1
+        connection = session._connection_pool.connections[0]
         assert connection.connected
     assert not connection.connected
 
@@ -45,9 +45,9 @@ def test_cannot_connect_default():
 def test_disconnect_args():
     session = AmqpSession()
     session.connect('localhost')
-    assert len(session.pool.connections) == 1
+    assert len(session._connection_pool.connections) == 1
     session.disconnect("localhost")
-    assert len(session.pool.connections) == 0
+    assert len(session._connection_pool.connections) == 0
 
 
 def test_deletion():

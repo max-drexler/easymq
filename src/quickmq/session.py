@@ -39,16 +39,12 @@ def connection_required(func: Callable) -> Callable:
 
 class AmqpSession:
     def __init__(self) -> None:
-        self._connections = ConnectionPool()
+        self._connection_pool = ConnectionPool()
         self._publisher = AmqpPublisher()
 
     @property
     def servers(self) -> List[str]:
-        return [con.server for con in self._connections]
-
-    @property
-    def pool(self) -> ConnectionPool:
-        return self._connections
+        return [con.server for con in self._connection_pool]
 
     @connection_required
     def publish(
@@ -64,7 +60,7 @@ class AmqpSession:
             exchange or CURRENT_CONFIG.get("DEFAULT_EXCHANGE"),
             confirm=confirm_delivery,
         )
-        self._publisher.publish_to_pool(self._connections, pckt)
+        self._publisher.publish_to_pool(self._connection_pool, pckt)
 
     @connection_required
     def publish_all(
@@ -82,28 +78,24 @@ class AmqpSession:
                 msg = val
             self.publish(msg, key, exchange=exchange, confirm_delivery=confirm_delivery)
 
-    def disconnect(self, *args) -> None:
-        if not args:
-            self._connections.remove_all()
+    def disconnect(self, *servers) -> None:
+        if not servers:
+            self._connection_pool.remove_all()
         else:
-            for serv in args:
-                self._connections.remove_server(serv)
+            for serv in servers:
+                self._connection_pool.remove_server(serv)
 
     def connect(
-        self, *args, auth: Tuple[Optional[str], Optional[str]] = (None, None)
+        self, *servers, auth: Tuple[Optional[str], Optional[str]] = (None, None)
     ) -> None:
-        for server in args:
+        for server in servers:
             try:
-                self._connections.add_server(server, auth=auth)
+                self._connection_pool.add_server(server, auth=auth)
             except (NotAuthenticatedError, ConnectionError):
                 raise
 
     def __str__(self) -> str:
         return f"[Amqp Session] connected to: {', '.join(self.servers)}"
-
-    def __del__(self) -> None:
-        self.disconnect()
-        del self._connections
 
     def __enter__(self):
         return self

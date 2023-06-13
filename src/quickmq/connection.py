@@ -219,16 +219,6 @@ class ServerConnection(threading.Thread):
         )
         self._callback_queue.put((callback, args, kwargs))
 
-    def __del__(self) -> None:
-        """Close connection at garbage collection
-        """
-        if not hasattr(self, '_connection'):  # class attributes not gauranteed
-            return
-        try:
-            self._connection.close(500, 'Garbage collection')
-        except ConnectionWrongStateError:
-            return
-
     def __eq__(self, _obj: Any) -> bool:
         if isinstance(_obj, str):
             return _obj == self.server

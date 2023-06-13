@@ -6,7 +6,7 @@ Methods that are exposed to the user by default
 """
 
 import atexit
-from typing import Any, Iterable, Union, Tuple, Optional, Callable
+from typing import Any, Union, Tuple, Optional, Callable
 
 from .session import AmqpSession
 
@@ -36,14 +36,6 @@ def publish(
     confirm_delivery=True,
 ) -> None:
     _CURRENT_SESSION.publish(message, key, exchange, confirm_delivery)
-
-
-def publish_all(
-    messages: Iterable[Union[Any, Tuple[str, Any]]],
-    exchange: Optional[str] = None,
-    confirm_delivery=True,
-) -> None:
-    _CURRENT_SESSION.publish_all(messages, exchange, confirm_delivery)
 
 
 # Consuming API *implement later

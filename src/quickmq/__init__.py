@@ -1,7 +1,7 @@
 import logging
 
 from .__version__ import __author__, __version__
-from .api import connect, consume, disconnect, get, publish, publish_all
+from .api import connect, consume, disconnect, get, publish
 from .config import configure
 from .message import Message, Packet
 from .session import AmqpSession
@@ -13,7 +13,6 @@ __all__ = [
     "__author__",
     "consume",
     "get",
-    "publish_all",
     "connect",
     "disconnect",
     "AmqpSession",

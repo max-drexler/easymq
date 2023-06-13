@@ -14,9 +14,9 @@ def start_easymq():
 
 def test_connection():
     quickmq.connect('localhost')
-    assert len(_CURRENT_SESSION.pool.connections) == 1
+    assert len(_CURRENT_SESSION._connection_pool.connections) == 1
     quickmq.disconnect()
-    assert len(_CURRENT_SESSION.pool.connections) == 0
+    assert len(_CURRENT_SESSION._connection_pool.connections) == 0
 
 
 @pytest.mark.parametrize('exchange', ['amq.fanout'])
@@ -37,22 +37,6 @@ def test_consume():
 def test_get():
     with pytest.raises(NotImplementedError):
         quickmq.get()
-
-
-@pytest.mark.parametrize('exchange', ['amq.fanout'])
-def test_publish_all(create_listener):
-    msgs = ["Hello", "World!"]
-    quickmq.publish_all(msgs, exchange='amq.fanout', confirm_delivery=True)
-    for msg in msgs:
-        assert json.loads(create_listener.get_message(block=True)) == msg
-
-
-@pytest.mark.parametrize('exchange', ['amq.fanout'])
-def test_non_confirm_publish_all(create_listener):
-    msgs = [f"howdly{i}" for i in range(1000)]
-    quickmq.publish_all(msgs, exchange='amq.fanout', confirm_delivery=False)
-    for msg in msgs:
-        assert json.loads(create_listener.get_message(block=True)) == msg
 
 
 @pytest.mark.parametrize('exchange', ['amq.fanout'])
