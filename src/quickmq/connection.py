@@ -3,7 +3,7 @@ import queue
 import socket
 import threading
 import time
-from typing import Any, Callable, List, Optional, Tuple
+from typing import Any, Callable, Iterator, List, Optional, Tuple
 import logging
 
 import pika
@@ -16,7 +16,6 @@ from pika.exceptions import (
     ProbableAccessDeniedError,
     ProbableAuthenticationError,
     StreamLostError,
-    ConnectionWrongStateError
 )
 
 from .config import CURRENT_CONFIG
@@ -130,7 +129,7 @@ class ServerConnection(threading.Thread):
         )
 
         self._running = False
-        self._callback_queue = queue.Queue()
+        self._callback_queue: queue.Queue = queue.Queue()
         self._connection = create_connection(self._con_params)
         self._default_channel = create_default_channel(self._connection)
         self._confirmed_channel = create_confirm_channel(self._connection)
@@ -259,7 +258,7 @@ class ReconnectConnection(ServerConnection):
     def _on_connection_error(self, exception: BaseException) -> None:
         LOGGER.info(f"Got error in connection {type(exception)}:{exception}")
         if isinstance(exception, ConnectionClosedByBroker):
-            LOGGER.info('Connection closed by broker, exiting')
+            LOGGER.info("Connection closed by broker, exiting")
             self.close()
             return
         self.__reconnect()
@@ -310,14 +309,10 @@ class ConnectionPool:
     def __init__(self) -> None:
         self._connections: List[ServerConnection] = []
 
-    @property
-    def connections(self) -> List[ServerConnection]:
-        return self._connections
-
     def remove_server(self, server: str) -> bool:
         for serv in self._connections.copy():
             if serv.server == server:
-                LOGGER.info(f'Found {serv.server} in pool, removing')
+                LOGGER.info(f"Found {serv.server} in pool, removing")
                 serv.close()
                 self._connections.remove(serv)
                 return True
@@ -328,16 +323,22 @@ class ConnectionPool:
     ) -> None:
         self.remove_server(new_server)  # Remove connection if it already exists
         new_con = ReconnectConnection(
-                host=new_server,
-                username=auth[0],
-                password=auth[1],
-            )
+            host=new_server,
+            username=auth[0],
+            password=auth[1],
+        )
         self._connections.append(new_con)
         new_con.start()
 
+    def get_connection(self, server: str) -> Optional[ServerConnection]:
+        for serv in self._connections:
+            if serv.server == server:
+                return serv
+        return None
+
     def add_connection(self, new_conn: ServerConnection) -> None:
-        self.remove_server(new_conn.server)
-        self._connections.append(new_conn)
+        if new_conn not in self._connections:
+            self._connections.append(new_conn)
 
     def remove_all(self) -> None:
         for con in self._connections.copy():
@@ -347,8 +348,16 @@ class ConnectionPool:
     def __len__(self) -> int:
         return len(self._connections)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[ServerConnection]:
         return iter(self._connections)
+
+    def __contains__(self, __obj: object) -> bool:
+        if isinstance(__obj, str):
+            return self.get_connection(__obj) is not None
+        elif isinstance(__obj, ServerConnection):
+            return __obj in self._connections
+        else:
+            return False
 
     def add_callback(self, callback, *args, **kwargs) -> None:
         for con in self._connections:

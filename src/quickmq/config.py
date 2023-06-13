@@ -60,7 +60,6 @@ class Configuration:
     DEFAULT_VARIABLES: List[Tuple[str, CFG_VALS, Callable]] = [
         ("RECONNECT_DELAY", 5.0, verify_pos_float),
         ("RECONNECT_TRIES", 3, int),
-        ("DEFAULT_SERVER", "localhost", str),
         ("DEFAULT_EXCHANGE", "", str),
         ("DEFAULT_USER", "guest", str),
         ("DEFAULT_PASS", "guest", str),

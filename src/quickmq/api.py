@@ -8,10 +8,10 @@ Methods that are exposed to the user by default
 import atexit
 from typing import Any, Union, Tuple, Optional, Callable
 
-from .session import AmqpSession
+from .session import AmqpClient
 
 
-_CURRENT_SESSION = AmqpSession()
+_CURRENT_SESSION = AmqpClient()
 
 
 atexit.register(_CURRENT_SESSION.disconnect)

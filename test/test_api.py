@@ -14,9 +14,9 @@ def start_easymq():
 
 def test_connection():
     quickmq.connect('localhost')
-    assert len(_CURRENT_SESSION._connection_pool.connections) == 1
+    assert len(_CURRENT_SESSION._connection_pool) == 1
     quickmq.disconnect()
-    assert len(_CURRENT_SESSION._connection_pool.connections) == 0
+    assert len(_CURRENT_SESSION._connection_pool) == 0
 
 
 @pytest.mark.parametrize('exchange', ['amq.fanout'])

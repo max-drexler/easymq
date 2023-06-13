@@ -58,10 +58,10 @@ def test_callback():
 
 def test_reconnect(disconnect_rabbitmq, restart_rabbitmq):
     quickmq.connect("localhost")
-    assert len(_CURRENT_SESSION._connection_pool.connections) == 1
+    assert len(_CURRENT_SESSION._connection_pool) == 1
     disconnect_rabbitmq()
     restart_rabbitmq()
-    assert len(_CURRENT_SESSION._connection_pool.connections) == 1
+    assert len(_CURRENT_SESSION._connection_pool) == 1
     quickmq.disconnect()
 
 

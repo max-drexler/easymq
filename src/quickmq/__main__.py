@@ -12,7 +12,7 @@ import logging
 
 from quickmq import __version__
 from quickmq.config import CFG_FILE_PATH
-from quickmq.session import AmqpSession
+from quickmq.session import AmqpClient
 
 log = logging.getLogger("quickmq")
 
@@ -34,19 +34,16 @@ def cmdln_publish(
     route: str,
     messages: Optional[List[str]],
 ) -> None:
-    with AmqpSession() as session:
-        session.connect(*servers, auth=(username, password))
+    with AmqpClient() as client:
+        client.connect(*servers, auth=(username, password))
         if messages is not None:
-            session.publish_all(
-                [(route, msg) for msg in messages],
-                exchange=exchange,
-                confirm_delivery=True,
-            )
+            for (route, msg) in messages:
+                client.publish(msg, key=route, exchange=exchange, confirm_delivery=True)
             return
 
         try:
             for msg in iter(sys.stdin.readline, b""):
-                session.publish(
+                client.publish(
                     msg.strip(), exchange=exchange, confirm_delivery=True, key=route
                 )
         except (KeyboardInterrupt, BrokenPipeError):

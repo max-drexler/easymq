@@ -4,7 +4,7 @@ from .__version__ import __author__, __version__
 from .api import connect, consume, disconnect, get, publish
 from .config import configure
 from .message import Message, Packet
-from .session import AmqpSession
+from .session import AmqpClient
 
 __all__ = [
     "publish",
@@ -15,7 +15,7 @@ __all__ = [
     "get",
     "connect",
     "disconnect",
-    "AmqpSession",
+    "AmqpClient",
     "Packet",
     "Message",
 ]

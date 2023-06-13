@@ -6,7 +6,7 @@ import time
 from typing import List
 
 import quickmq as mq
-from quickmq import AmqpSession
+from quickmq import AmqpClient
 from quickmq.exceptions import NotAuthenticatedError
 
 import pika
@@ -76,7 +76,7 @@ def test_setup(cmdln_args: List[str]) -> None:
 
     try:
         if args.session:
-            publisher = AmqpSession()
+            publisher = AmqpClient()
             publisher.connect('localhost')
         else:
             mq.connect('localhost')
