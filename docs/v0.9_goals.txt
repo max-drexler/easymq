@@ -2,7 +2,9 @@ quickmq 0.9 goals:
 
 *Stability
 *Working editor/consumer
+*Configuration rework
+
+*Documentation
 *Solid performance testing
 *Setup CI/CD pipeline
-*Configuration rework
 *Test with multiple servers
