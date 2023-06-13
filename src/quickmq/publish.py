@@ -61,6 +61,8 @@ class AmqpPublisher:
             self._publishing.set()
 
     def publish_to_connection(self, connection: ServerConnection, pckt: Packet) -> None:
+        if not connection.connected:
+            raise ConnectionError(f"Cannot publish to closed connection: '{connection}'")
         if not pckt.confirm:
             connection.add_callback(self._publish, connection, pckt)
         else:

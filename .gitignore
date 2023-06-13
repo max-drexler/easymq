@@ -13,7 +13,6 @@ pypi_token.txt
 # Built Visual Studio Code Extensions
 *.vsix
 
-
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -26,6 +25,7 @@ __pycache__/
 .Python
 build/
 develop-eggs/
+pip-wheel-metadata/
 dist/
 downloads/
 eggs/

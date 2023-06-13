@@ -12,6 +12,7 @@ from pika.exceptions import (
     AMQPConnectionError,
     AuthenticationError,
     ConnectionClosed,
+    ConnectionClosedByBroker,
     ProbableAccessDeniedError,
     ProbableAuthenticationError,
     StreamLostError,
@@ -129,8 +130,8 @@ class ServerConnection(threading.Thread):
         )
 
         self._running = False
-        self._callback_queue: queue.Queue = queue.Queue()
-        self._connection: pika.BlockingConnection = create_connection(self._con_params)
+        self._callback_queue = queue.Queue()
+        self._connection = create_connection(self._con_params)
         self._default_channel = create_default_channel(self._connection)
         self._confirmed_channel = create_confirm_channel(self._connection)
 
@@ -266,6 +267,11 @@ class ReconnectConnection(ServerConnection):
         return super().close()
 
     def _on_connection_error(self, exception: BaseException) -> None:
+        LOGGER.info(f"Got error in connection {type(exception)}:{exception}")
+        if isinstance(exception, ConnectionClosedByBroker):
+            LOGGER.info('Connection closed by broker, exiting')
+            self.close()
+            return
         self.__reconnect()
 
     def __reconnect(self) -> None:

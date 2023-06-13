@@ -49,7 +49,7 @@ def cmdln_publish(
                 session.publish(
                     msg.strip(), exchange=exchange, confirm_delivery=True, key=route
                 )
-        except KeyboardInterrupt:
+        except (KeyboardInterrupt, BrokenPipeError):
             return
 
 
