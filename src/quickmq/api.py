@@ -2,13 +2,14 @@
 easymq.api
 ~~~~~~~~~~
 
-Methods that are exposed to the user by default
+Contains exposed client methods for ease of use.
 """
 
 import atexit
 from typing import Any, Union, Tuple, Optional, Callable
 
-from .session import AmqpClient
+from .client import AmqpClient
+from .editor import TopologyEditor
 
 
 _CURRENT_SESSION = AmqpClient()
@@ -26,6 +27,11 @@ def connect(
 
 def disconnect(*args) -> None:
     _CURRENT_SESSION.disconnect(*args)
+
+
+# Editing API
+def edit() -> TopologyEditor:
+    return _CURRENT_SESSION.edit()
 
 
 # Publishing API

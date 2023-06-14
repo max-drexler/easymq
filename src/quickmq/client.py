@@ -1,8 +1,8 @@
 """
-easymq.session
+easymq.client
 ~~~~~~~~~~~~~~
 
-This module contains objects and functions to maintain a long-term amqp session.
+This module contains the main client class.
 """
 
 import logging
@@ -22,6 +22,7 @@ class AmqpClient:
         self._connection_pool = ConnectionPool()
         self._publisher = AmqpPublisher()
         self._consumer = None
+        self._editor = TopologyEditor(self._connection_pool)
 
     @property
     def servers(self) -> List[str]:
@@ -60,7 +61,7 @@ class AmqpClient:
     def edit(self) -> TopologyEditor:
         if len(self._connection_pool) == 0:
             raise ConnectionError("Must be connected to a server to edit!")
-        return TopologyEditor(self._connection_pool)
+        return self._editor
 
     def __str__(self) -> str:
         return f"[Amqp Session] connected to: {', '.join(self.servers)}"
