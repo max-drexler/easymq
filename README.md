@@ -90,7 +90,7 @@ Use `quickmq --help` for more information.
 
 ## Documentation
 
-See the GitLab [wiki]() for more documentation.
+See the GitLab [wiki](https://gitlab.ssec.wisc.edu/mdrexler/easymq/-/wikis/home) for more documentation.
 
 ## Contributing
 
