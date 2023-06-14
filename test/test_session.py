@@ -1,7 +1,7 @@
 import pytest
 
 import quickmq
-from quickmq.session import AmqpClient
+from quickmq.client import AmqpClient
 
 
 def test_context_manager():
@@ -10,13 +10,9 @@ def test_context_manager():
 
 
 def test_publish_context_manager():
-    try:
-        with AmqpClient() as session:
-            quickmq.configure('default_server', 'asfasd')
-            session.connect('localhost')
-            session.publish('hello')
-    finally:
-        quickmq.configure('default_server', None)
+    with AmqpClient() as session:
+        session.connect('localhost')
+        session.publish('hello')
 
 
 def test_connect_context_manager():
@@ -26,12 +22,6 @@ def test_connect_context_manager():
         connection = session._connection_pool.get_connection('localhost')
         assert connection is not None and connection.connected
     assert not connection.connected
-
-
-def test_auto_connect():
-    with AmqpClient() as session:
-        session.publish('hello')
-        assert len(session.servers) == 1
 
 
 def test_cannot_connect_default():
@@ -53,3 +43,15 @@ def test_deletion():
     new_session = AmqpClient()
     new_session.connect("localhost")
     del new_session
+
+
+def test_error_no_con__edit():
+    with pytest.raises(ConnectionError):
+        client = AmqpClient()
+        client.edit()
+
+
+def test_error_no_con_pub():
+    with pytest.raises(ConnectionError):
+        client = AmqpClient()
+        client.publish('hi')

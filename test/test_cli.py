@@ -26,7 +26,7 @@ def test_usage():
 @pytest.mark.parametrize('exchange', ['amq.fanout'])
 def test_publish(create_listener):
     run_command('quickmq publish -s=localhost -e=amq.fanout -m=Hello')
-    rcvd_bytes = create_listener.get_message(block=True)
+    rcvd_bytes = create_listener.get_message(block=False)
     assert loads(rcvd_bytes) == 'Hello'
 
 

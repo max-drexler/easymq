@@ -12,7 +12,7 @@ import logging
 
 from quickmq import __version__
 from quickmq.config import CFG_FILE_PATH
-from quickmq.session import AmqpClient
+from quickmq.client import AmqpClient
 
 log = logging.getLogger("quickmq")
 
@@ -37,7 +37,7 @@ def cmdln_publish(
     with AmqpClient() as client:
         client.connect(*servers, auth=(username, password))
         if messages is not None:
-            for (route, msg) in messages:
+            for msg in messages:
                 client.publish(msg, key=route, exchange=exchange, confirm_delivery=True)
             return
 
